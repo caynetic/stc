@@ -19,7 +19,7 @@
     "deploy": "node -e \"console.error('Use ops/production-runbook.md; direct npm deployment is disabled.'); process.exit(1)\""
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.21.3",
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
     "@cloudflare/workers-types": "^5.20260814.1",
     "@tailwindcss/cli": "4.3.3",
     "@types/node": "^24.0.0",
