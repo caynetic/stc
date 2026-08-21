@@ -1,0 +1,56 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "serve-the-cays-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-29",
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "ENVIRONMENT": "local",
+    "APP_ORIGIN": "http://127.0.0.1:8787",
+    "REQUIRE_TURNSTILE": "false",
+    "SESSION_TTL_SECONDS": "28800",
+    "RATE_LIMIT_WINDOW_SECONDS": "300",
+    "SUBMISSION_IP_LIMIT": "5",
+    "SUBMISSION_MEMBER_LIMIT": "5",
+    "NEWSLETTER_IP_LIMIT": "10",
+    "NEWSLETTER_EMAIL_LIMIT": "3",
+    "NEWSLETTER_CONFIRMATION_TTL_SECONDS": "86400",
+    "MEMBER_APPLICATION_ENABLED": "true",
+    "MEMBER_SESSION_TTL_SECONDS": "2592000",
+    "MEMBER_SESSION_IDLE_TTL_SECONDS": "604800",
+    "MEMBER_MAGIC_LINK_TTL_SECONDS": "900",
+    "MEMBER_LOGIN_IP_LIMIT": "10",
+    "MEMBER_LOGIN_EMAIL_LIMIT": "5",
+    "EMAIL_METADATA_RETENTION_DAYS": "90",
+    "EMAIL_FROM_SIGNIN": "signin@servethecays.com",
+    "EMAIL_FROM_NOTIFICATIONS": "notifications@servethecays.com",
+    "EMAIL_REPLY_TO": "hello@servethecays.com",
+    "TRANSACTIONAL_EMAIL_DELIVERY_ENABLED": "true",
+    "NEWSLETTER_DELIVERY_ENABLED": "true",
+    "NEWSLETTER_SUBSCRIPTION_ENABLED": "true",
+    "NEWSLETTER_DOUBLE_OPT_IN_VERIFIED": "false",
+    "NEWSLETTER_FROM_EMAIL": "news@servethecays.com",
+    "NEWSLETTER_DAILY_LIMIT": "90",
+    "PRIVATE_RETENTION_DAYS": "30",
+    "PRIVATE_SUBMISSION_RETENTION_DAYS": "90"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "serve-the-cays-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    { "binding": "PRIVATE_UPLOADS", "bucket_name": "serve-the-cays-private-local" },
+    { "binding": "PUBLISHED_MEDIA", "bucket_name": "serve-the-cays-media-local" }
+  ],
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "triggers": { "crons": ["*/15 * * * *", "17 6 * * *"] }
+}

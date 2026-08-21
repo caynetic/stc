@@ -1,0 +1,13 @@
+node_modules/
+.wrangler/
+coverage/
+dist/
+*.log
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+wrangler.private.jsonc
+wrangler.ci.jsonc
+ops/private/
+ops/generated-*.sql
+ops/*.private.sql

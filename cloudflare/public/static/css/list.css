@@ -1,0 +1,123 @@
+.search-form {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+.search-form input, .search-form select {
+    padding: 0.5rem;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.location-tag {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.org-location-tag {
+    background: #f0f0f0;
+    color: #666;
+    font-size: 0.8rem;
+    margin-right: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.event-location-tag {
+    display: inline-block;
+    background: #e0f7fa;
+    color: #006064;
+    font-size: 0.9rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.category-tag {
+    display: inline-block;
+    background: #e3f2fd;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    margin-right: 0.5rem;
+    margin-bottom: 0.5rem;
+    color: #1565c0;
+}
+
+.org-categories {
+    margin-bottom: 0.5rem;
+}
+
+.logo-container, .org-logo-container, .event-logo-container {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    margin-bottom: 1rem;
+    width: 100%;
+}
+
+.org-logo-container {
+    height: 80px;
+}
+
+.org-logo {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.event-logo-container {
+    height: 80px;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.event-logo {
+    max-height: 100%;
+    max-width: 100%;
+    object-fit: contain;
+}
+
+.event-contacts {
+    margin-top: 1rem;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.contact-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: #f5f5f5;
+    border-radius: 50%;
+    color: #333;
+    text-decoration: none;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.contact-link:hover {
+    background: #000;
+    color: #fff;
+}
+
+@keyframes logoFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.org-logo-container, .event-logo-container {
+    animation: logoFadeIn 1.2s ease-out forwards;
+}

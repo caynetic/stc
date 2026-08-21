@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Serve the Cays</title>
+  <desc id="desc">Community and volunteer directory for The Bahamas.</desc>
+  <rect width="1200" height="630" fill="#fffaf2"/>
+  <circle cx="1050" cy="95" r="260" fill="#f8dbe7"/>
+  <circle cx="110" cy="610" r="330" fill="#d9f1ec"/>
+  <g transform="translate(90 115)"><rect width="250" height="250" rx="62" fill="#fff"/><path d="M125 105C90 77 75 59 75 39c0-17 13-29 29-29 11 0 19 5 26 15 7-10 15-15 26-15 16 0 29 12 29 29 0 20-15 38-60 76Z" fill="#ec4f8f"/><path d="M50 143c20-34 44-51 73-51 22 0 38 8 51 25 13-5 25-3 36 3-9 23-25 40-48 51-32 15-69 7-112-28Z" fill="#197b49"/><path d="M31 169c38-12 70-14 99-5 30 10 61 8 94-3-11 46-47 76-95 76-47 0-83-23-98-68Z" fill="#05a89b"/></g>
+  <text x="390" y="245" font-family="Arial, sans-serif" font-size="76" font-weight="800" fill="#102d2d">Serve the Cays</text>
+  <text x="393" y="320" font-family="Arial, sans-serif" font-size="34" fill="#365454">Community in action across The Bahamas.</text>
+  <rect x="393" y="370" width="320" height="62" rx="31" fill="#007f75"/>
+  <text x="553" y="411" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#fff">servethecays.com</text>
+</svg>

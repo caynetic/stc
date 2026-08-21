@@ -1,0 +1,144 @@
+name: Deploy Cloudflare Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy.yml
+      - cloudflare/**
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Environment to deploy
+        required: true
+        default: preview
+        type: choice
+        options:
+          - preview
+          - production
+      production_recovery_recorded:
+        description: I recorded the production rollback version and D1 recovery bookmark
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    name: Deploy preview
+    if: >-
+      vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' &&
+      (github.event_name == 'push' || inputs.target == 'preview')
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: ${{ vars.DEPLOYMENT_URL }}
+    concurrency:
+      group: cloudflare-preview
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cloudflare/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify release candidate locally
+        run: npm run verify
+      - name: Materialize private deployment configuration
+        env:
+          WRANGLER_CONFIG_JSONC: ${{ secrets.WRANGLER_CONFIG_JSONC }}
+        run: |
+          if [ -z "$WRANGLER_CONFIG_JSONC" ]; then
+            echo "::error::WRANGLER_CONFIG_JSONC is not configured for the preview environment."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$WRANGLER_CONFIG_JSONC" > wrangler.ci.jsonc
+      - name: Validate preview bundle without deploying
+        run: npx wrangler deploy --dry-run --config wrangler.ci.jsonc --env preview
+      - name: Apply preview migrations and deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          preCommands: wrangler d1 migrations apply DB --remote --config wrangler.ci.jsonc --env preview
+          command: deploy --config wrangler.ci.jsonc --env preview
+      - name: Smoke-test preview
+        if: ${{ vars.DEPLOYMENT_URL != '' }}
+        env:
+          DEPLOYMENT_URL: ${{ vars.DEPLOYMENT_URL }}
+        run: curl --fail --silent --show-error --retry 3 "$DEPLOYMENT_URL/"
+      - name: Remove materialized deployment configuration
+        if: ${{ always() }}
+        run: rm -f wrangler.ci.jsonc
+
+  production:
+    name: Deploy production
+    if: >-
+      vars.CLOUDFLARE_DEPLOY_ENABLED == 'true' &&
+      github.event_name == 'workflow_dispatch' &&
+      inputs.target == 'production' &&
+      inputs.production_recovery_recorded
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ vars.DEPLOYMENT_URL }}
+    concurrency:
+      group: cloudflare-production
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: cloudflare
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: cloudflare/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify release candidate locally
+        run: npm run verify
+      - name: Materialize private deployment configuration
+        env:
+          WRANGLER_CONFIG_JSONC: ${{ secrets.WRANGLER_CONFIG_JSONC }}
+        run: |
+          if [ -z "$WRANGLER_CONFIG_JSONC" ]; then
+            echo "::error::WRANGLER_CONFIG_JSONC is not configured for the production environment."
+            exit 1
+          fi
+          umask 077
+          printf '%s' "$WRANGLER_CONFIG_JSONC" > wrangler.ci.jsonc
+      - name: Validate production bundle without deploying
+        run: npx wrangler deploy --dry-run --config wrangler.ci.jsonc --env production
+      - name: Apply production migrations and deploy
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: cloudflare
+          preCommands: wrangler d1 migrations apply DB --remote --config wrangler.ci.jsonc --env production
+          command: deploy --config wrangler.ci.jsonc --env production
+      - name: Smoke-test production
+        if: ${{ vars.DEPLOYMENT_URL != '' }}
+        env:
+          DEPLOYMENT_URL: ${{ vars.DEPLOYMENT_URL }}
+        run: curl --fail --silent --show-error --retry 3 "$DEPLOYMENT_URL/"
+      - name: Remove materialized deployment configuration
+        if: ${{ always() }}
+        run: rm -f wrangler.ci.jsonc

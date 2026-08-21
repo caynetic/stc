@@ -1,0 +1,259 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "serve-the-cays-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-29",
+  "workers_dev": false,
+  "preview_urls": false,
+  "vars": {
+    "ENVIRONMENT": "local",
+    "APP_ORIGIN": "http://127.0.0.1:8787",
+    "REQUIRE_TURNSTILE": "false",
+    "SESSION_TTL_SECONDS": "28800",
+    "SESSION_IDLE_TTL_SECONDS": "1800",
+    "RATE_LIMIT_WINDOW_SECONDS": "300",
+    "SUBMISSION_IP_LIMIT": "5",
+    "SUBMISSION_MEMBER_LIMIT": "5",
+    "NEWSLETTER_IP_LIMIT": "10",
+    "NEWSLETTER_EMAIL_LIMIT": "3",
+    "NEWSLETTER_CONFIRMATION_TTL_SECONDS": "86400",
+    "MEMBER_APPLICATION_ENABLED": "true",
+    "MEMBER_SESSION_TTL_SECONDS": "2592000",
+    "MEMBER_SESSION_IDLE_TTL_SECONDS": "604800",
+    "MEMBER_MAGIC_LINK_TTL_SECONDS": "900",
+    "MEMBER_LOGIN_IP_LIMIT": "10",
+    "MEMBER_LOGIN_EMAIL_LIMIT": "5",
+    "EMAIL_METADATA_RETENTION_DAYS": "90",
+    "EMAIL_FROM_SIGNIN": "signin@servethecays.com",
+    "EMAIL_FROM_NOTIFICATIONS": "notifications@servethecays.com",
+    "EMAIL_REPLY_TO": "hello@servethecays.com",
+    "TRANSACTIONAL_EMAIL_DELIVERY_ENABLED": "true",
+    "NEWSLETTER_DELIVERY_ENABLED": "true",
+    "NEWSLETTER_SUBSCRIPTION_ENABLED": "true",
+    "NEWSLETTER_DOUBLE_OPT_IN_VERIFIED": "false",
+    "NEWSLETTER_FROM_EMAIL": "news@servethecays.com",
+    "NEWSLETTER_DAILY_LIMIT": "90",
+    "PRIVATE_RETENTION_DAYS": "30",
+    "PRIVATE_SUBMISSION_RETENTION_DAYS": "90"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "serve-the-cays-local",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "PRIVATE_UPLOADS",
+      "bucket_name": "serve-the-cays-private-local"
+    },
+    {
+      "binding": "PUBLISHED_MEDIA",
+      "bucket_name": "serve-the-cays-media-local"
+    }
+  ],
+  "images": {
+    "binding": "IMAGES",
+    "remote": true
+  },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true
+  },
+  "triggers": {
+    "crons": ["*/15 * * * *", "17 6 * * *"]
+  },
+  "env": {
+    "preview": {
+      "name": "serve-the-cays-preview",
+      "workers_dev": true,
+      "preview_urls": true,
+      "vars": {
+        "ENVIRONMENT": "preview",
+        "APP_ORIGIN": "https://serve-the-cays-preview.caynetic.workers.dev",
+        "REQUIRE_TURNSTILE": "true",
+        "TURNSTILE_SITE_KEY": "REPLACE_WITH_PREVIEW_TURNSTILE_SITE_KEY",
+        "SESSION_TTL_SECONDS": "28800",
+        "SESSION_IDLE_TTL_SECONDS": "1800",
+        "RATE_LIMIT_WINDOW_SECONDS": "300",
+        "SUBMISSION_IP_LIMIT": "5",
+        "SUBMISSION_MEMBER_LIMIT": "5",
+        "NEWSLETTER_IP_LIMIT": "10",
+        "NEWSLETTER_EMAIL_LIMIT": "3",
+        "NEWSLETTER_CONFIRMATION_TTL_SECONDS": "86400",
+        "MEMBER_SESSION_TTL_SECONDS": "2592000",
+        "MEMBER_SESSION_IDLE_TTL_SECONDS": "604800",
+        "MEMBER_MAGIC_LINK_TTL_SECONDS": "900",
+        "MEMBER_LOGIN_IP_LIMIT": "10",
+        "MEMBER_LOGIN_EMAIL_LIMIT": "5",
+        "EMAIL_METADATA_RETENTION_DAYS": "90",
+        "EMAIL_FROM_SIGNIN": "signin@servethecays.com",
+        "EMAIL_FROM_NOTIFICATIONS": "notifications@servethecays.com",
+        "EMAIL_REPLY_TO": "hello@servethecays.com",
+        "MEMBER_APPLICATION_ENABLED": "false",
+        "TRANSACTIONAL_EMAIL_DELIVERY_ENABLED": "false",
+        "NEWSLETTER_DELIVERY_ENABLED": "false",
+        "NEWSLETTER_SUBSCRIPTION_ENABLED": "false",
+        "NEWSLETTER_DOUBLE_OPT_IN_VERIFIED": "false",
+        "MEMBER_SCHEMA_RELEASE_READY": "false",
+        "EMAIL_DELIVERY_RECONCILIATION_VERIFIED": "false",
+        "NEWSLETTER_SUPPRESSION_INGESTION_VERIFIED": "false",
+        "ADMIN_STEP_UP_VERIFIED": "false",
+        "NEWSLETTER_FROM_EMAIL": "news@servethecays.com",
+        "NEWSLETTER_DAILY_LIMIT": "90",
+        "PRIVATE_RETENTION_DAYS": "30",
+        "PRIVATE_SUBMISSION_RETENTION_DAYS": "90"
+      },
+      "secrets": {
+        "required": [
+          "SESSION_SECRET",
+          "MEMBER_SESSION_SECRET",
+          "IP_HASH_KEY",
+          "RATE_LIMIT_HASH_KEY",
+          "UNSUBSCRIBE_SECRET",
+          "TURNSTILE_ORGANIZATION_SECRET",
+          "TURNSTILE_EVENT_SECRET",
+          "TURNSTILE_NEWSLETTER_SECRET",
+          "TURNSTILE_MEMBER_SECRET",
+          "FORWARD_EMAIL_NEWSLETTER_PASSWORD",
+          "FORWARD_EMAIL_API_TOKEN",
+          "FORWARD_EMAIL_WEBHOOK_SECRET",
+          "NEWSLETTER_CONFIRMATION_SECRET"
+        ]
+      },
+      "send_email": [
+        {
+          "name": "EMAIL",
+          "allowed_sender_addresses": [
+            "signin@servethecays.com",
+            "notifications@servethecays.com"
+          ]
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "serve-the-cays-preview",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PRIVATE_UPLOADS",
+          "bucket_name": "serve-the-cays-private-preview"
+        },
+        {
+          "binding": "PUBLISHED_MEDIA",
+          "bucket_name": "serve-the-cays-media-preview"
+        }
+      ],
+      "images": { "binding": "IMAGES" },
+      "assets": {
+        "directory": "./public",
+        "binding": "ASSETS",
+        "run_worker_first": true
+      }
+    },
+    "production": {
+      "name": "serve-the-cays",
+      "workers_dev": false,
+      "preview_urls": false,
+      "routes": [
+        {
+          "pattern": "servethecays.com",
+          "custom_domain": true
+        }
+      ],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "APP_ORIGIN": "https://servethecays.com",
+        "REQUIRE_TURNSTILE": "true",
+        "TURNSTILE_SITE_KEY": "REPLACE_WITH_PRODUCTION_TURNSTILE_SITE_KEY",
+        "SESSION_TTL_SECONDS": "28800",
+        "SESSION_IDLE_TTL_SECONDS": "1800",
+        "RATE_LIMIT_WINDOW_SECONDS": "300",
+        "SUBMISSION_IP_LIMIT": "5",
+        "SUBMISSION_MEMBER_LIMIT": "5",
+        "NEWSLETTER_IP_LIMIT": "10",
+        "NEWSLETTER_EMAIL_LIMIT": "3",
+        "NEWSLETTER_CONFIRMATION_TTL_SECONDS": "86400",
+        "MEMBER_SESSION_TTL_SECONDS": "2592000",
+        "MEMBER_SESSION_IDLE_TTL_SECONDS": "604800",
+        "MEMBER_MAGIC_LINK_TTL_SECONDS": "900",
+        "MEMBER_LOGIN_IP_LIMIT": "10",
+        "MEMBER_LOGIN_EMAIL_LIMIT": "5",
+        "EMAIL_METADATA_RETENTION_DAYS": "90",
+        "EMAIL_FROM_SIGNIN": "signin@servethecays.com",
+        "EMAIL_FROM_NOTIFICATIONS": "notifications@servethecays.com",
+        "EMAIL_REPLY_TO": "hello@servethecays.com",
+        "MEMBER_APPLICATION_ENABLED": "false",
+        "TRANSACTIONAL_EMAIL_DELIVERY_ENABLED": "false",
+        "NEWSLETTER_DELIVERY_ENABLED": "false",
+        "NEWSLETTER_SUBSCRIPTION_ENABLED": "false",
+        "NEWSLETTER_DOUBLE_OPT_IN_VERIFIED": "false",
+        "MEMBER_SCHEMA_RELEASE_READY": "false",
+        "EMAIL_DELIVERY_RECONCILIATION_VERIFIED": "false",
+        "NEWSLETTER_SUPPRESSION_INGESTION_VERIFIED": "false",
+        "ADMIN_STEP_UP_VERIFIED": "false",
+        "NEWSLETTER_FROM_EMAIL": "news@servethecays.com",
+        "NEWSLETTER_DAILY_LIMIT": "90",
+        "PRIVATE_RETENTION_DAYS": "30",
+        "PRIVATE_SUBMISSION_RETENTION_DAYS": "90"
+      },
+      "secrets": {
+        "required": [
+          "SESSION_SECRET",
+          "MEMBER_SESSION_SECRET",
+          "IP_HASH_KEY",
+          "RATE_LIMIT_HASH_KEY",
+          "UNSUBSCRIBE_SECRET",
+          "TURNSTILE_ORGANIZATION_SECRET",
+          "TURNSTILE_EVENT_SECRET",
+          "TURNSTILE_NEWSLETTER_SECRET",
+          "TURNSTILE_MEMBER_SECRET",
+          "FORWARD_EMAIL_NEWSLETTER_PASSWORD",
+          "FORWARD_EMAIL_API_TOKEN",
+          "FORWARD_EMAIL_WEBHOOK_SECRET",
+          "NEWSLETTER_CONFIRMATION_SECRET"
+        ]
+      },
+      "send_email": [
+        {
+          "name": "EMAIL",
+          "allowed_sender_addresses": [
+            "signin@servethecays.com",
+            "notifications@servethecays.com"
+          ]
+        }
+      ],
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "serve-the-cays-production",
+          "database_id": "00000000-0000-0000-0000-000000000000",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "r2_buckets": [
+        {
+          "binding": "PRIVATE_UPLOADS",
+          "bucket_name": "serve-the-cays-private-production"
+        },
+        {
+          "binding": "PUBLISHED_MEDIA",
+          "bucket_name": "serve-the-cays-media-production"
+        }
+      ],
+      "images": { "binding": "IMAGES" },
+      "assets": {
+        "directory": "./public",
+        "binding": "ASSETS",
+        "run_worker_first": true
+      }
+    }
+  }
+}

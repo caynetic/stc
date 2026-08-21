@@ -1,0 +1,11 @@
+SESSION_SECRET=replace-with-at-least-32-random-bytes
+MEMBER_SESSION_SECRET=replace-with-a-different-at-least-32-random-bytes
+TURNSTILE_MEMBER_SECRET=replace-only-if-local-turnstile-is-enabled
+IP_HASH_KEY=replace-with-at-least-32-random-bytes
+RATE_LIMIT_HASH_KEY=replace-with-at-least-32-random-bytes
+SUBMISSION_MEMBER_LIMIT=5
+UNSUBSCRIBE_SECRET=replace-with-at-least-32-random-bytes
+FORWARD_EMAIL_NEWSLETTER_PASSWORD=replace-with-forward-email-newsletter-alias-password
+FORWARD_EMAIL_API_TOKEN=replace-with-forward-email-api-token
+FORWARD_EMAIL_WEBHOOK_SECRET=replace-with-at-least-32-random-bytes
+NEWSLETTER_CONFIRMATION_SECRET=replace-with-a-different-at-least-32-random-bytes
