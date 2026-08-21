@@ -26,6 +26,6 @@
     "tailwindcss": "4.3.3",
     "typescript": "^5.9.0",
     "vitest": "^4.1.0",
-    "wrangler": "^4.123.0"
+    "wrangler": "^4.124.0"
   }
 }
