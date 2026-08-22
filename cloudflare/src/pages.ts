@@ -151,7 +151,7 @@ function publicLayout(options: LayoutOptions): Response {
     <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
     <link rel="manifest" href="/static/images/site.webmanifest">
 
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="/assets/fontawesome/all.min.css">
 
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/flash.css">
@@ -805,7 +805,7 @@ export async function eventPage(env: Env, id: number): Promise<Response> {
         <button class="btn member-rsvp-button" type="button" data-rsvp-event-id="${id}">Sign in to say you&rsquo;re going</button>
         <p class="member-action-status" role="status" aria-live="polite"></p>
       </div>`;
-  const body = `<div class="container">
+  const body = `<div class="container event-detail">
     <div class="entity-header">${detailMedia(event)}${ended ? '<span class="member-badge member-badge-ended">Ended</span>' : ""}<h1>${escapeHtml(name)}</h1></div>
     <p class="event-meta"><i class="far fa-calendar-alt"></i> <time datetime="${escapeHtml(startAt)}">${escapeHtml(formatEventDate(startAt))}</time>${endAt ? `<br><i class="far fa-clock"></i> Ends <time datetime="${escapeHtml(endAt)}">${escapeHtml(formatEventDate(endAt))}</time>` : ""}<br><i class="fas fa-map-marker-alt"></i> ${escapeHtml(venueName)} - ${escapeHtml(locationDisplay)}</p>
     <div class="member-event-summary"><p class="member-rsvp-count"><i class="fas fa-user-check" aria-hidden="true"></i> <strong data-rsvp-count="${id}">${rsvpCount}</strong> <span data-rsvp-count-label="${id}">${rsvpCount === 1 ? "person is" : "people are"}</span> going</p>${memberActions}</div>
@@ -820,7 +820,7 @@ export async function eventPage(env: Env, id: number): Promise<Response> {
     </div>
 </div>
 <div id="lightbox" class="lightbox" aria-hidden="true"><img id="lightbox-img" alt="Full screen image"></div>`;
-  return layout({ env, path: `/event/${id}`, title: `${name} | Serve the Cays`, description: text(event, "description"), keywords: `${name}, ${ended ? "past" : "upcoming"} event, volunteer, community service, The Bahamas, ${venueName}`, body, noindex: ended, extraHead: `<link rel="stylesheet" href="/static/css/entity.css"><style>.event-meta{font-size:1.1rem;color:#666;margin-bottom:1.5rem;line-height:1.8}.event-meta i{width:20px;text-align:center;margin-right:.5rem}.org-description{font-size:1.25rem;color:#333;margin-bottom:2rem;font-weight:500}.entity-logo-large{width:100%;max-width:600px;height:300px;background-color:#f5f5f5;border-radius:8px;overflow:hidden}</style>${jsonLd(structuredEvent)}`, extraBody: '<script src="/static/js/entity.js"></script>' });
+  return layout({ env, path: `/event/${id}`, title: `${name} | Serve the Cays`, description: text(event, "description"), keywords: `${name}, ${ended ? "past" : "upcoming"} event, volunteer, community service, The Bahamas, ${venueName}`, body, noindex: ended, extraHead: `<link rel="stylesheet" href="/static/css/entity.css">${jsonLd(structuredEvent)}`, extraBody: '<script src="/static/js/entity.js"></script>' });
 }
 
 export async function suggestOrganizationPage(request: Request, env: Env): Promise<Response> {

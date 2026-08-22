@@ -17,9 +17,12 @@ jobs:
         working-directory: cloudflare
     steps:
       - name: Check out repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - name: Set up Node.js
-        uses: actions/setup-node@v7
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 24
           cache: npm
@@ -28,3 +31,5 @@ jobs:
         run: npm ci
       - name: Verify application and public-repository boundary
         run: npm run verify
+      - name: Verify reachable public history
+        run: npm run public:history-check
