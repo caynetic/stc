@@ -1,5 +1,5 @@
 import { ApiError, json, parseBoolean, positiveInteger } from "./http";
-import { RESPONSIVE_EMAIL_STYLES } from "./email-layout";
+import { EMAIL_LOGO_PATH, RESPONSIVE_EMAIL_STYLES } from "./email-layout";
 import {
   CloudflareEmailDeliveryError,
   sendTransactionalViaCloudflare,
@@ -243,7 +243,7 @@ function emailButton(action?: EmailAction): string {
 
 function messageShell(env: Env, options: EmailLayoutOptions): string {
   const origin = expectedOrigin(env);
-  const logoUrl = `${origin}/static/images/logo.png`;
+  const logoUrl = `${origin}${EMAIL_LOGO_PATH}`;
   const paragraphs = (options.paragraphs ?? [])
     .filter(Boolean)
     .map((paragraph) => `<p class="stc-email-copy" style="margin:0 0 14px;color:#41514f;font-size:16px;line-height:1.65">${escapeHtml(paragraph)}</p>`)

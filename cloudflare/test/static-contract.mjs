@@ -705,7 +705,7 @@ test("public attribution identifies Caynetic Ltd. and uses its current website",
   assert.match(pages, /href="https:\/\/caynetic\.ltd"/);
   assert.match(pages, /Caynetic Ltd\./);
   assert.doesNotMatch(pages, /https:\/\/caynetic\.com|canyetic\.com/i);
-  assert.match(pages, /Serve the Cays is operated and maintained by/);
+  assert.match(pages, /Serve the Cays is an initiative of/);
   assert.match(pages, /Caynetic Ltd\. is the data controller responsible for the personal information described in this policy/);
 });
 
@@ -770,6 +770,7 @@ test("the Worker public presentation includes its owned design assets", () => {
     "css/flash.css",
     "images/logo.svg",
     "images/logo.png",
+    "images/email-logo.5a81761f5371.png",
     "images/favicon.ico",
     "images/favicon-16x16.png",
     "images/favicon-32x32.png",
@@ -782,6 +783,10 @@ test("the Worker public presentation includes its owned design assets", () => {
   for (const relative of exactFiles) {
     assert.ok(readFileSync(path.join(cloudflareStatic, relative)).length > 0, `${relative} is empty`);
   }
+  const emailLogo = readFileSync(path.join(cloudflareStatic, "images", "email-logo.5a81761f5371.png"));
+  assert.equal(emailLogo.readUInt32BE(16), 96, "email logo width must remain 96 pixels");
+  assert.equal(emailLogo.readUInt32BE(20), 96, "email logo height must remain 96 pixels");
+  assert.ok(emailLogo.length <= 10_000, "email logo must remain at or below 10 KB");
   assert.deepEqual(
     readFileSync(path.join(root, "public", "assets", "logo.svg")),
     readFileSync(path.join(cloudflareStatic, "images", "logo.svg")),
@@ -823,6 +828,19 @@ test("the home How We Help section presents four service cards", () => {
 
   assert.equal((pages.match(/class="feature-card"/g) ?? []).length, 4);
   assert.match(pages, /<h3>Engage<\/h3><p>Save organizations, RSVP to events, and stay connected with the causes you care about\.<\/p>/);
+});
+
+test("the About and Privacy pages explain public source and external services", () => {
+  const pages = readFileSync(path.join(root, "src", "pages.ts"), "utf8");
+
+  assert.match(pages, /Serve the Cays is an initiative of <a href="https:\/\/caynetic\.ltd"/);
+  assert.match(pages, /source code and self-hosting documentation on GitHub/);
+  assert.match(pages, /Live member, submission, outreach, email, and operational records remain outside the public repository/);
+  assert.match(pages, /Administrator identities are not shown with public news articles/);
+  assert.match(pages, /Turnstile evaluates browser and request signals, normally runs in the background/);
+  assert.match(pages, /href="https:\/\/buymeacoffee\.com\/privacy-policy"/);
+  assert.match(pages, /Serve the Cays does not collect full payment-card or bank-account details/);
+  assert.match(pages, /Live account, submission, newsletter, outreach, email, audit, and security records are not included in the public repository/);
 });
 
 test("Tailwind is compiled locally without resetting the site presentation", () => {

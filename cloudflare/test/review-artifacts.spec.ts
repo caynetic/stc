@@ -32,7 +32,7 @@ const filenameByKind: Record<EmailKind, string> = {
 
 function reviewHtml(html: string): string {
   return html
-    .replaceAll(`${APP_ORIGIN}/static/images/logo.png`, "../assets/logo.png")
+    .replaceAll(`${APP_ORIGIN}/static/images/email-logo.5a81761f5371.png`, "../assets/logo.png")
     .replace(/href="https:\/\/servethecays\.test[^"]*"/g, (value) => {
       const target = value.slice(6, -1);
       return `href="../index.html#external-link-note" data-original-href="${target}" title="External action disabled in this offline review copy"`;

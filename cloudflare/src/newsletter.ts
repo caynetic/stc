@@ -9,7 +9,7 @@ import {
   type NewsletterDeliveryEnvironment,
   type NewsletterMessageInput,
 } from "./newsletter-delivery";
-import { RESPONSIVE_EMAIL_STYLES } from "./email-layout";
+import { EMAIL_LOGO_PATH, RESPONSIVE_EMAIL_STYLES } from "./email-layout";
 import { ApiError, json, parseBoolean, positiveInteger, readBoundedBody, readJson } from "./http";
 import {
   bytesToBase64Url,
@@ -1116,7 +1116,7 @@ async function renderDelivery(env: Env, delivery: DeliveryRow, now: Date): Promi
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
               <td width="58" valign="middle" style="width:58px;vertical-align:middle">
                 <a href="${origin}" style="display:inline-block;text-decoration:none">
-                  <img src="${origin}/static/images/logo.png" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border:0;outline:none;text-decoration:none">
+                  <img src="${origin}${EMAIL_LOGO_PATH}" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border:0;outline:none;text-decoration:none">
                 </a>
               </td>
               <td valign="middle" style="vertical-align:middle">

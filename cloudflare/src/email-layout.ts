@@ -1,3 +1,5 @@
+export const EMAIL_LOGO_PATH = "/static/images/email-logo.5a81761f5371.png";
+
 export const RESPONSIVE_EMAIL_STYLES = `<style type="text/css">
   html,
   body {
