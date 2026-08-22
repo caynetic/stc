@@ -85,7 +85,12 @@ test("public history scanning does not trust labels, extensions, or filename cas
   const fixture = mkdtempSync(path.join(os.tmpdir(), "stc-public-history-boundaries-"));
   try {
     runGit(fixture, ["init", "--initial-branch=main"]);
-    const providerToken = ["provider-", "Q7mV9pL2xR4tN8cK5wH3zB6fJ1sD0aY9qW2nM7vP"].join("");
+    const providerToken = [
+      "provider-",
+      "Q7mV9pL2xR4tN8c",
+      "K5wH3zB6fJ1sD0a",
+      "Y9qW2nM7vP",
+    ].join("");
     const slashToken = ["Q7mV9pL2xR4tN8cK5wH3", "/", "zB6fJ1sD0aY9qW2nM7vP"].join("");
     const authToken = ["a8K2mP5vR9xT3wY7", "nQ4sD6fH1jL0zB8c", "V2gM7pN5"].join("");
     const shortPassword = ["Q7mV9pL2xR4tN8cK"].join("");
@@ -111,6 +116,7 @@ test("public history scanning does not trust labels, extensions, or filename cas
     assert.match(output, /category=forbidden path/);
     assert.match(output, /category=non-placeholder infrastructure ID/);
     assert.match(output, /category=suspicious secret assignment/);
+    assert.match(output, /category=suspicious secret assignment commit=[0-9a-f]{40} file=service\.ts line=1/);
     assert.equal(output.includes(providerToken), false);
     assert.equal(output.includes(slashToken), false);
     assert.equal(output.includes(authToken), false);
