@@ -498,6 +498,34 @@ test("the member client keeps private state in no-store APIs and treats it as te
   assert.match(member, /localStorage\.removeItem\("stc_favorites"\)/);
 });
 
+test("completed and terminal member actions cannot remain visibly busy", () => {
+  const client = readFileSync(path.join(root, "public", "assets", "app.js"), "utf8");
+  const styles = readFileSync(path.join(root, "styles", "tailwind.css"), "utf8");
+  const protectedSubmission = client.slice(
+    client.indexOf("async function initializeProtectedSubmissionForms"),
+    client.indexOf("function revalidateProtectedSubmissionForms"),
+  );
+  const newsletterConfirmation = client.slice(
+    client.indexOf("let newsletterConfirmationToken"),
+    client.indexOf("const unsubscribeButton"),
+  );
+  const unsubscribe = client.slice(
+    client.indexOf("const unsubscribeButton"),
+    client.indexOf("const MEMBER_SESSION_STATUS"),
+  );
+  const memberVerification = client.slice(
+    client.indexOf("function setupMemberVerification"),
+    client.indexOf("function clearNode"),
+  );
+
+  assert.match(client, /function settleButton\(button, \{ hidden = false \} = \{\}\)[\s\S]*?removeAttribute\("aria-busy"\)[\s\S]*?button\.disabled = true[\s\S]*?button\.hidden = hidden/);
+  assert.match(protectedSubmission, /if \(memberSessionFailed\(\)\) \{\s*forms\.forEach\(settleProtectedSubmissionForm\)/);
+  assert.match(newsletterConfirmation, /settleButton\(button, \{ hidden: true \}\)/);
+  assert.match(unsubscribe, /settleButton\(unsubscribeButton, \{ hidden: true \}\)/);
+  assert.match(memberVerification, /catch \(error\)[\s\S]*?memberVerificationToken = ""[\s\S]*?settleButton\(button\)/);
+  assert.match(styles, /\.stc-app-surface \[hidden\] \{\s*display: none !important;/);
+});
+
 test("favorite controls use an accessible animated pixel heart", () => {
   const pages = readFileSync(path.join(root, "src", "pages.ts"), "utf8");
   const member = readFileSync(path.join(root, "public", "assets", "app.js"), "utf8");
@@ -943,9 +971,11 @@ test("Tailwind is compiled locally without resetting the site presentation", () 
   assert.match(compiled, /\.stc-simple-header\{/);
   assert.match(compiled, /\.member-delete-dialog\{/);
   assert.match(source, /\.btn\[aria-busy="true"\]::before/);
+  assert.match(source, /\.stc-app-surface \[hidden\] \{\s*display: none !important;/);
   assert.match(source, /@keyframes stc-button-spin/);
   assert.match(source, /\.member-multi-choice-grid/);
   assert.match(source, /\.cf-turnstile/);
+  assert.match(source, /\.member-auth-card-icon \+ \.member-eyebrow \{\s*margin-left: 0\.5rem;/);
   assert.equal(packageJson.devDependencies.tailwindcss, "4.3.3");
   assert.equal(packageJson.devDependencies["@tailwindcss/cli"], "4.3.3");
 });
@@ -963,6 +993,8 @@ test("the public footer credits Cloudflare accessibly", () => {
     pages,
     /<p>Operated by <a href="https:\/\/caynetic\.ltd"[^>]*>Caynetic Ltd\.<\/a><\/p>/,
   );
+  assert.match(pages, /const SITE_VERSION = "1\.5";/);
+  assert.match(pages, /<p class="footer-version">Version \$\{SITE_VERSION\}<\/p>/);
   assert.match(
     pages,
     /<p class="footer-cloudflare-credit"><span>Powered by<\/span><a href="https:\/\/www\.cloudflare\.com\/"[^>]*><i class="fab fa-cloudflare" aria-hidden="true"><\/i><span>Cloudflare<\/span><\/a><\/p>/,

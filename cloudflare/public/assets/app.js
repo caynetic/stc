@@ -49,6 +49,13 @@ function setButtonBusy(button, busy) {
   else button.removeAttribute("aria-busy");
 }
 
+function settleButton(button, { hidden = false } = {}) {
+  if (!(button instanceof HTMLButtonElement)) return;
+  button.removeAttribute("aria-busy");
+  button.disabled = true;
+  button.hidden = hidden;
+}
+
 function showFieldErrors(form, errors = {}) {
   let firstInvalid = null;
   for (const [name, messages] of Object.entries(errors)) {
@@ -145,11 +152,17 @@ function setProtectedSubmissionPending(form, pending) {
   setButtonBusy(submit, pending);
 }
 
+function settleProtectedSubmissionForm(form) {
+  form.setAttribute("aria-busy", "false");
+  settleButton(form.querySelector('button[type="submit"]'));
+}
+
 async function initializeProtectedSubmissionForms(forms = protectedSubmissionForms()) {
   if (!forms.length) return;
   forms.forEach((form) => setProtectedSubmissionPending(form, true));
   await sessionPromise;
   if (memberSessionFailed()) {
+    forms.forEach(settleProtectedSubmissionForm);
     const globalStatus = document.querySelector("[data-member-global-status]");
     if (globalStatus) {
       globalStatus.textContent = "We couldn’t confirm your session. Please try again before sending this suggestion.";
@@ -650,7 +663,7 @@ if (newsletterConfirmationRoot) {
         status.textContent = payload.message || "Your community updates are confirmed.";
         status.className = "form-status success";
       }
-      button.hidden = true;
+      settleButton(button, { hidden: true });
     } catch (error) {
       if (status) {
         status.textContent = error instanceof Error ? error.message : "The subscription could not be confirmed.";
@@ -675,7 +688,7 @@ if (unsubscribeButton) {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.message || "The request could not be completed.");
       showStatus(card, payload.message, "success");
-      unsubscribeButton.hidden = true;
+      settleButton(unsubscribeButton, { hidden: true });
     } catch (error) {
       showStatus(card, error instanceof Error ? error.message : "The request could not be completed.", "error");
       setButtonBusy(unsubscribeButton, false);
@@ -1396,6 +1409,7 @@ function setupMemberVerification() {
       status.textContent = error instanceof Error ? error.message : "This link could not be used. Request a new sign-in link.";
       status.className = "form-status error";
       status.hidden = false;
+      settleButton(button);
     }
   });
 }

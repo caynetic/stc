@@ -4,6 +4,8 @@ import { optionalMemberSession } from "./member-auth";
 import { expectedOrigin } from "./security";
 import type { CategoryRow, Env, LocationRow } from "./types";
 
+const SITE_VERSION = "1.5";
+
 export function escapeHtml(value: unknown): string {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -218,6 +220,7 @@ function publicLayout(options: LayoutOptions): Response {
         </div>
         <div class="footer-bottom">
             <p>&copy; 2026 Serve the Cays. All rights reserved.</p>
+            <p class="footer-version">Version ${SITE_VERSION}</p>
             <p>Operated by <a href="https://caynetic.ltd" target="_blank" rel="noopener noreferrer">Caynetic Ltd.</a></p>
             <p class="footer-cloudflare-credit"><span>Powered by</span><a href="https://www.cloudflare.com/" target="_blank" rel="noopener noreferrer"><i class="fab fa-cloudflare" aria-hidden="true"></i><span>Cloudflare</span></a></p>
         </div>
