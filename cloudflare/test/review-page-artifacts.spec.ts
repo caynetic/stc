@@ -16,10 +16,41 @@ const baseEnv = env as unknown as Env;
 
 function offlineHtml(html: string): string {
   const stripTag = (source: string, tag: "script" | "link"): string => {
-    const pattern = tag === "script"
-      ? /<script\b[\s\S]*?<\/script>/gi
-      : /<link\b[^>]*>/gi;
-    return source.replace(pattern, "");
+    const lower = source.toLowerCase();
+    const prefix = `<${tag}`;
+    let cursor = 0;
+    let output = "";
+    while (cursor < source.length) {
+      const start = lower.indexOf(prefix, cursor);
+      if (start < 0) {
+        output += source.slice(cursor);
+        break;
+      }
+      const boundary = source[start + prefix.length] ?? "";
+      if (boundary && ![" ", "\t", "\n", "\r", ">", "/"].includes(boundary)) {
+        cursor = start + prefix.length;
+        continue;
+      }
+      const openEnd = source.indexOf(">", start);
+      if (openEnd < 0) {
+        output += source.slice(cursor);
+        break;
+      }
+      output += source.slice(cursor, start);
+      if (tag === "script") {
+        const closeStart = lower.indexOf("</script", openEnd + 1);
+        const closeEnd = closeStart < 0 ? -1 : source.indexOf(">", closeStart);
+        if (closeEnd < 0) {
+          output += source.slice(start, openEnd + 1);
+          cursor = openEnd + 1;
+          continue;
+        }
+        cursor = closeEnd + 1;
+      } else {
+        cursor = openEnd + 1;
+      }
+    }
+    return output;
   };
 
   return stripTag(stripTag(html, "script"), "link")
