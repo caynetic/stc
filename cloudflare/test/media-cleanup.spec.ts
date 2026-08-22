@@ -95,10 +95,10 @@ describe("durable media cleanup", () => {
   });
 
   it("keeps failed private and published deletions discoverable and retries them", async () => {
-    const privateKey = "quarantine/organization_submission/orphan/private";
+    const privateObjectPath = "quarantine/organization_submission/orphan/private";
     const publishedKey = "published/orphan/derivative.webp";
     await Promise.all([
-      baseEnv.PRIVATE_UPLOADS.put(privateKey, bytes(2)),
+      baseEnv.PRIVATE_UPLOADS.put(privateObjectPath, bytes(2)),
       baseEnv.PUBLISHED_MEDIA.put(publishedKey, bytes(3)),
     ]);
     const failingBucket = {
@@ -113,7 +113,7 @@ describe("durable media cleanup", () => {
       ownerId: "submission_orphan",
       kind: "organization_logo",
       altText: "Community organization logo",
-      originalKey: privateKey,
+      originalKey: privateObjectPath,
       createdAt: "2026-08-14T00:00:00.000Z",
     };
     const derivative: PreparedDerivative = {
@@ -141,7 +141,7 @@ describe("durable media cleanup", () => {
     expect(pending.results).toEqual([
       {
         bucket: "private_uploads",
-        object_key: privateKey,
+        object_key: privateObjectPath,
         attempts: 1,
         last_error: "simulated R2 outage",
       },
@@ -154,7 +154,7 @@ describe("durable media cleanup", () => {
     ]);
 
     expect(await processMediaCleanupJobs(baseEnv, new Date("2100-01-01T00:00:00.000Z"))).toBe(2);
-    expect(await baseEnv.PRIVATE_UPLOADS.get(privateKey)).toBeNull();
+    expect(await baseEnv.PRIVATE_UPLOADS.get(privateObjectPath)).toBeNull();
     expect(await baseEnv.PUBLISHED_MEDIA.get(publishedKey)).toBeNull();
     expect((await baseEnv.DB.prepare(
       "SELECT COUNT(*) AS count FROM media_cleanup_jobs",

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
@@ -81,13 +81,100 @@ test("GitHub deployment is opt-in and production remains manually protected", ()
   assert.equal((workflow.match(/vars\.CLOUDFLARE_DEPLOY_ENABLED == 'true'/g) ?? []).length, 2);
   assert.match(workflow, /inputs\.production_recovery_recorded/);
   assert.match(workflow, /environment:\s*\n\s*name: production/);
-  assert.match(workflow, /cloudflare\/wrangler-action@v4/);
+  assert.match(workflow, /cloudflare\/wrangler-action@[0-9a-f]{40}/);
   assert.match(workflow, /secrets\.WRANGLER_CONFIG_JSONC/);
   assert.match(workflow, /d1 migrations apply DB --remote --config wrangler\.ci\.jsonc --env preview/);
   assert.match(workflow, /d1 migrations apply DB --remote --config wrangler\.ci\.jsonc --env production/);
   assert.match(workflow, /rm -f wrangler\.ci\.jsonc/);
   assert.match(selfHosting, /disabled\s+by default/i);
   assert.match(selfHosting, /GitHub Pages\s+site/);
+});
+
+test("public workflows use immutable action references and full-history verification", () => {
+  const workflowDirectory = path.join(repositoryRoot, ".github", "workflows");
+  const workflowFiles = files(workflowDirectory).filter((file) => file.endsWith(".yml") || file.endsWith(".yaml"));
+  const allowedActions = new Set([
+    "actions/checkout",
+    "actions/setup-node",
+    "cloudflare/wrangler-action",
+  ]);
+  for (const workflowFile of workflowFiles) {
+    const workflow = readFileSync(workflowFile, "utf8");
+    for (const match of workflow.matchAll(/^\s*uses:\s*([^\s#]+)/gm)) {
+      const [name, ref] = match[1].split("@");
+      assert.ok(allowedActions.has(name), `${workflowFile} uses an unapproved action: ${name}`);
+      assert.match(ref ?? "", /^[0-9a-f]{40}$/, `${workflowFile} action is not pinned to a full SHA`);
+    }
+    assert.doesNotMatch(workflow, /@(v4|v6|v7)(?:\s|$)/);
+  }
+
+  const ci = readFileSync(path.join(workflowDirectory, "ci.yml"), "utf8");
+  assert.match(ci, /fetch-depth:\s*0/);
+  assert.match(ci, /persist-credentials:\s*false/);
+  assert.match(ci, /branches:\s*\n\s*-\s*['"]\*\*['"]/);
+  assert.match(ci, /tags:\s*\n\s*-\s*['"]\*\*['"]/);
+  assert.doesNotMatch(ci, /refs\/pull\/\*/);
+  assert.match(ci, /timeout-minutes:\s*15/);
+  assert.match(ci, /npm run public:history-check/);
+  const checkoutSteps = workflowFiles
+    .map((workflowFile) => readFileSync(workflowFile, "utf8"))
+    .join("\n")
+    .match(/uses:\s*actions\/checkout@[0-9a-f]{40}[\s\S]{0,140}?persist-credentials:\s*false/g) ?? [];
+  assert.equal(checkoutSteps.length, 3);
+});
+
+test("public presentation assets are self-hosted and CSP has no external stylesheet escape hatch", () => {
+  const allPageSources = files(path.join(root, "src"))
+    .filter((file) => file.endsWith(".ts"))
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
+  const pageSources = readFileSync(path.join(root, "src", "pages.ts"), "utf8");
+  const http = readFileSync(path.join(root, "src", "http.ts"), "utf8");
+  const fontAwesomeCssPath = path.join(root, "public", "assets", "fontawesome", "css", "all.min.css");
+  const fontAwesomeCss = readFileSync(fontAwesomeCssPath, "utf8");
+  const fontAwesomeLicense = readFileSync(path.join(root, "public", "assets", "fontawesome", "LICENSE.txt"), "utf8");
+  const fontDirectory = path.join(root, "public", "assets", "fontawesome", "webfonts");
+
+  assert.match(pageSources, /href="\/assets\/fontawesome\/css\/all\.min\.css"/);
+  for (const match of allPageSources.matchAll(/<link\b[^>]*>/gi)) {
+    const openingTag = match[0];
+    const rel = openingTag.match(/\brel\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    const href = openingTag.match(/\bhref\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    if (/\bstylesheet\b/i.test(rel)) {
+      assert.doesNotMatch(href, /^(?:https?:)?\/\//i, `external stylesheet: ${openingTag}`);
+    }
+  }
+  assert.doesNotMatch(pageSources, /<style[ >]/i);
+  assert.match(http, /style-src 'self';/);
+  assert.doesNotMatch(http, /unsafe-inline|fonts\.googleapis\.com|fonts\.gstatic\.com|cdnjs\.cloudflare\.com/);
+  assert.match(http, /script-src 'self' https:\/\/challenges\.cloudflare\.com/);
+  assert.match(http, /frame-src https:\/\/challenges\.cloudflare\.com/);
+  assert.match(http, /connect-src 'self' https:\/\/challenges\.cloudflare\.com/);
+  assert.match(fontAwesomeCss, /Font Awesome Free 6\.0\.0/);
+  assert.doesNotMatch(fontAwesomeCss, /url\(\s*https?:\/\//i);
+  assert.match(fontAwesomeLicense, /Font Awesome Free License/);
+  for (const icon of new Set([...pageSources.matchAll(/\bfa-[a-z0-9-]+/g)].map((match) => match[0]))) {
+    const escaped = icon.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    assert.match(fontAwesomeCss, new RegExp(`\\.${escaped}(?::before|::before|[\\s,{])`), `missing Font Awesome icon ${icon}`);
+  }
+  for (const font of [
+    "fa-brands-400.woff2",
+    "fa-regular-400.woff2",
+    "fa-solid-900.woff2",
+    "fa-v4compatibility.woff2",
+  ]) {
+    assert.ok(files(fontDirectory).includes(path.join(fontDirectory, font)), `missing ${font}`);
+    const relativeFontPath = `../webfonts/${font}`;
+    assert.ok(fontAwesomeCss.includes(relativeFontPath), `CSS does not reference ${font}`);
+    assert.ok(
+      existsSync(path.resolve(path.dirname(fontAwesomeCssPath), relativeFontPath)),
+      `CSS font URL does not resolve to ${font}`,
+    );
+  }
+
+  for (const cssPath of files(path.join(root, "public")).filter((file) => file.endsWith(".css"))) {
+    assert.doesNotMatch(readFileSync(cssPath, "utf8"), /@import\s+(?:url\(\s*)?["']?(?:https?:)?\/\//i, `${cssPath} imports an external stylesheet`);
+  }
 });
 
 test("Cloudflare transactional email and Forward Email newsletters remain gated", () => {

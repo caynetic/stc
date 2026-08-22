@@ -1,0 +1,344 @@
+#!/usr/bin/env node
+
+import { spawnSync } from "node:child_process";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const cloudflareRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = process.env.PUBLIC_REPOSITORY_ROOT
+  ? path.resolve(process.env.PUBLIC_REPOSITORY_ROOT)
+  : path.resolve(cloudflareRoot, "..");
+const failures = [];
+const MAX_TEXT_BYTES = 64 * 1024 * 1024;
+const GIT_MAX_BUFFER_BYTES = 128 * 1024 * 1024;
+const MAX_TOTAL_TEXT_BYTES = 512 * 1024 * 1024;
+const MAX_FAILURES = 2_000;
+let scannedTextBytes = 0;
+let failureLimitReached = false;
+const failureKeys = new Set();
+const exactHistoricalFindingExceptions = [
+  {
+    category: "high-entropy literal",
+    commit: "18f201d593744395be76641fc78fbd9289f98840",
+    file: ["cloudflare", "test", ["public-history-check", "node-test.mjs"].join(".")].join("/"),
+    line: 88,
+  },
+];
+
+function isExactHistoricalFindingException(category, commit, file, line) {
+  return exactHistoricalFindingExceptions.some((exception) => (
+    exception.category === category
+    && exception.commit === commit
+    && exception.file === file
+    && exception.line === line
+  ));
+}
+
+function git(args, encoding = "utf8") {
+  const result = spawnSync("git", args, {
+    cwd: repositoryRoot,
+    encoding,
+    maxBuffer: GIT_MAX_BUFFER_BYTES,
+  });
+  if (result.status !== 0) {
+    throw new Error(`git ${args.join(" ")} failed`);
+  }
+  return result.stdout;
+}
+
+function report(category, commit, file, line = "-") {
+  if (isExactHistoricalFindingException(category, commit, file, line)) return;
+  const safeFile = safeFileName(file);
+  const key = JSON.stringify({ category, commit, file: safeFile, line });
+  if (failureKeys.has(key)) return;
+  if (failureKeys.size >= MAX_FAILURES && category !== "history scan limit") {
+    failureLimitReached = true;
+    return;
+  }
+  failureKeys.add(key);
+  failures.push({ category, commit, file: safeFile, line });
+}
+
+function safeFileName(file) {
+  let safe = file.split("/").map((part) => {
+    if (part.length >= 32 && entropy(part) >= 4.3) return "[redacted]";
+    return part;
+  }).join("/");
+  for (const [, pattern] of credentialPatterns) {
+    safe = safe.replace(pattern, "[redacted]");
+  }
+  return safe.replace(/[\u0000-\u001f\u007f]/g, (character) => {
+    const code = character.codePointAt(0).toString(16).padStart(2, "0");
+    return `\\x${code}`;
+  });
+}
+
+function lineFor(source, index) {
+  return source.slice(0, index).split("\n").length;
+}
+
+function entropy(value) {
+  const counts = new Map();
+  for (const character of value) counts.set(character, (counts.get(character) ?? 0) + 1);
+  let score = 0;
+  for (const count of counts.values()) {
+    const probability = count / value.length;
+    score -= probability * Math.log2(probability);
+  }
+  return score;
+}
+
+const exactPlaceholderValues = new Set([
+  "account-wide-token",
+  "account-wide-token-must-not-send",
+  "alias-password",
+  "forward-email-api-token",
+  "quarantine/organization_submission/orphan/private",
+  "newsletter-customize-token-1234567890abcdef",
+  "newsletter-alias-password",
+  "private-unsubscribe-token-1234567890",
+  "unsubscribed-customize-token-1234567890abc",
+  "test-event-turnstile-secret",
+  "test-forward-email-webhook-secret-at-least-32-bytes",
+  "test-password-pepper-that-is-at-least-32-bytes",
+  "test-session-secret-that-is-at-least-32-bytes",
+  "test-member-session-secret-that-is-different-and-at-least-32-bytes",
+  "test-ip-hash-key-that-is-at-least-32-bytes",
+  "test-rate-limit-key-that-is-at-least-32-bytes",
+  "test-unsubscribe-secret-at-least-32-bytes",
+  "test-newsletter-confirmation-secret-at-least-32-bytes",
+]);
+
+function isPlaceholder(value) {
+  const normalized = value.trim();
+  if (exactPlaceholderValues.has(normalized)) return true;
+  if (/^REPLACE_WITH_[A-Z0-9_]+$/.test(normalized)) return true;
+  if (/^0+$/.test(normalized) || /^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(normalized)) return true;
+  return false;
+}
+
+function isStaticPathLiteral(value) {
+  return /^(?:\/?(?:static|assets|quarantine|published)\/|(?:https?:)?\/\/)/i.test(value)
+    || /\.(?:avif|gif|jpe?g|png|svg|webp|woff2?|ttf|eot)$/i.test(value);
+}
+
+const secretKeyPattern = /(?:secret|token|password|passwd|credential|auth(?:orization|entication)?|access[_-]?key|api[_-]?key|private[_-]?key)/i;
+
+function isStructuredConfigPath(file) {
+  return /(?:^|\/)\.env(?:\.[^/]*)?$/i.test(file)
+    || /\.(?:ini|json|jsonc|properties|toml|ya?ml)$/i.test(file);
+}
+
+const credentialPatterns = [
+  ["private key material", /-----BEGIN (?:RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/g],
+  ["AWS access key", /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/g],
+  ["GitHub token", /\b(?:gh[oprsu]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{30,})\b/g],
+  ["Slack token", /\bxox[baprs]-[A-Za-z0-9-]{10,}\b/g],
+  ["Stripe secret", /\bsk_(?:live|test)_[A-Za-z0-9]{16,}\b/g],
+  ["OpenAI-style secret", /\bsk-[A-Za-z0-9_-]{20,}\b/g],
+  ["SendGrid key", /\bSG\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\b/g],
+  ["Google API key", /\bAIza[0-9A-Za-z_-]{35}\b/g],
+  ["npm token", /\bnpm_[A-Za-z0-9]{30,}\b/g],
+  ["JWT-like credential", /\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\b/g],
+];
+
+const forbiddenPathPatterns = [
+  /(?:^|\/)\.env(?:\..*)?$/i,
+  /(?:^|\/)\.dev\.vars$/i,
+  /(?:^|\/)wrangler\.(?:private|ci)\.jsonc$/i,
+  /(?:^|\/)ops\/private(?:\/|$)/i,
+  /(?:^|\/)(?:design-previews|private-archive)(?:\/|$)/i,
+  /\.(?:pem|p12|pfx|key|sqlite|sqlite3|db|log|zip)$/i,
+];
+
+const commits = git(["rev-list", "--all", "--full-history", "--reverse"])
+  .trim()
+  .split(/\s+/)
+  .filter(Boolean);
+if (!commits.length) {
+  process.stderr.write("Public-history check failed: no reachable commits were found.\n");
+  process.exit(1);
+}
+
+function addFinding(findings, category, line) {
+  findings.push({ category, line });
+}
+
+function scanContent(source) {
+  const findings = [];
+  for (const [category, pattern] of credentialPatterns) {
+    pattern.lastIndex = 0;
+    for (const match of source.matchAll(pattern)) {
+      addFinding(findings, category, lineFor(source, match.index));
+    }
+  }
+
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/\/(?:Users|home)\/[A-Za-z0-9._-]+(?:\/|$)/.test(line) || /[A-Za-z]:\\Users\\[^\\\s]+\\/.test(line)) {
+      addFinding(findings, "absolute developer path", index + 1);
+    }
+  }
+  return findings;
+}
+
+function scanFilePath(file) {
+  const findings = [];
+  for (const [category, pattern] of credentialPatterns) {
+    pattern.lastIndex = 0;
+    if (pattern.test(file)) addFinding(findings, category, "-");
+  }
+  return findings;
+}
+
+function looksLikeSecretValue(candidate, structuredConfig) {
+  const tokenLike = /^[A-Za-z0-9_+/=.-]+$/.test(candidate);
+  if (!tokenLike) return false;
+  if (structuredConfig) return candidate.length >= 12;
+  return tokenLike && (candidate.length >= 24 || entropy(candidate) >= 4.1);
+}
+
+function scanAssignments(source, structuredConfig) {
+  const findings = [];
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const assignments = line.matchAll(/\b([A-Za-z][A-Za-z0-9_-]*)\b\s*["']?\s*[:=]\s*(?:(['"`])([^'"`\r\n]{12,})\2|([^\s,#}\]]{12,}))/g);
+    for (const assignment of assignments) {
+      const key = assignment[1];
+      const quoted = Boolean(assignment[2]);
+      const keySignal = secretKeyPattern.test(key)
+        || /(?:secret|token|password|passwd|accessKey|apiKey|privateKey)$/i.test(key);
+      const configKey = /^[A-Z][A-Z0-9_-]*$/.test(key) && keySignal;
+      const sourceKey = quoted && keySignal && (
+        /[A-Z]/.test(key.slice(1))
+        || /[_-]/.test(key)
+        || /^(?:secret|token|password|passwd)$/i.test(key)
+      );
+      if (!configKey && !(structuredConfig && keySignal) && !sourceKey) continue;
+      if (!quoted && !structuredConfig) continue;
+      const candidate = assignment[3] ?? assignment[4] ?? "";
+      if (isPlaceholder(candidate)) continue;
+      if (looksLikeSecretValue(candidate, structuredConfig)) {
+        addFinding(findings, "suspicious secret assignment", index + 1);
+      }
+    }
+  }
+  return findings;
+}
+
+function scanHighEntropyLiterals(source) {
+  const findings = [];
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    for (const literal of line.matchAll(/(["'`])([A-Za-z0-9_+/=.-]{32,200})\1/g)) {
+      const candidate = literal[2];
+      if (isPlaceholder(candidate) || isStaticPathLiteral(candidate) || /servethecays|cloudflare/i.test(candidate)) continue;
+      if (entropy(candidate) >= 4.3) addFinding(findings, "high-entropy literal", index + 1);
+    }
+  }
+  return findings;
+}
+
+function scanInfrastructure(source) {
+  const findings = [];
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const uuids = line.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? [];
+    for (const uuid of uuids) {
+      if (!/^0{8}-0{4}-0{4}-0{4}-0{12}$/i.test(uuid)) {
+        addFinding(findings, "non-placeholder infrastructure ID", index + 1);
+      }
+    }
+    const ids = line.matchAll(/\b(?:account|database|zone|namespace|queue|bucket)[_-]?(?:id|identifier)?\b\s*[:=]\s*["']([0-9a-f]{32})["']/gi);
+    for (const id of ids) {
+      if (!/^0+$/.test(id[1])) addFinding(findings, "non-placeholder infrastructure ID", index + 1);
+    }
+  }
+  return findings;
+}
+
+const blobs = new Map();
+
+function readBlob(blobSha) {
+  if (blobs.has(blobSha)) return blobs.get(blobSha);
+  const buffer = git(["cat-file", "blob", blobSha], "buffer");
+  let blob;
+  if (buffer.includes(0)) {
+    blob = { text: null, binary: true, oversized: false, contentFindings: [], highEntropyFindings: [] };
+  } else if (buffer.length > MAX_TEXT_BYTES) {
+    blob = { text: null, binary: false, oversized: true, contentFindings: [], highEntropyFindings: [] };
+  } else {
+    scannedTextBytes += buffer.length;
+    if (scannedTextBytes > MAX_TOTAL_TEXT_BYTES) {
+      failureLimitReached = true;
+      blob = { text: null, binary: false, oversized: true, contentFindings: [], highEntropyFindings: [] };
+      blobs.set(blobSha, blob);
+      return blob;
+    }
+    const text = buffer.toString("utf8");
+    blob = {
+      binary: false,
+      oversized: false,
+      contentFindings: scanContent(text),
+      assignmentFindings: {
+        source: scanAssignments(text, false),
+        config: scanAssignments(text, true),
+      },
+      highEntropyFindings: scanHighEntropyLiterals(text),
+      infrastructureFindings: scanInfrastructure(text),
+    };
+  }
+  blobs.set(blobSha, blob);
+  return blob;
+}
+
+for (const commit of commits) {
+  const tree = git(["ls-tree", "-r", "-z", "--full-tree", commit]);
+  const records = tree.toString("utf8").split("\0").filter(Boolean);
+  for (const record of records) {
+    const match = record.match(/^\d+\s+(\w+)\s+([0-9a-f]{40})\t([\s\S]+)$/);
+    if (!match) continue;
+    const [, type, blobSha, file] = match;
+    if (type !== "blob") continue;
+
+    for (const finding of scanFilePath(file)) report(finding.category, commit, file, finding.line);
+    const exampleException = /(?:^|\/)\.dev\.vars\.example$/i.test(file) || /(?:^|\/)\.env\.example$/i.test(file);
+    if (!exampleException && forbiddenPathPatterns.some((pattern) => pattern.test(file))) {
+      report("forbidden path", commit, file);
+    }
+
+    const blob = readBlob(blobSha);
+    if (blob.binary) continue;
+    if (blob.oversized) {
+      report("oversized text blob", commit, file);
+      continue;
+    }
+
+    for (const finding of blob.contentFindings) report(finding.category, commit, file, finding.line);
+    const assignmentFindings = isStructuredConfigPath(file)
+      ? blob.assignmentFindings.config
+      : blob.assignmentFindings.source;
+    for (const finding of assignmentFindings) report(finding.category, commit, file, finding.line);
+    if (!/(?:svg|css|woff2?|json|jsonc|webmanifest)$/i.test(file)) {
+      for (const finding of blob.highEntropyFindings) report(finding.category, commit, file, finding.line);
+    }
+    for (const finding of blob.infrastructureFindings) report(finding.category, commit, file, finding.line);
+  }
+}
+
+if (failureLimitReached) report("history scan limit", "-", "-", "-");
+
+const uniqueFailures = [...new Map(failures.map((failure) => [JSON.stringify(failure), failure])).values()];
+if (uniqueFailures.length) {
+  process.stderr.write("Public-history check failed:\n");
+  for (const failure of uniqueFailures) {
+    process.stderr.write(`- category=${failure.category} commit=${failure.commit} file=${failure.file} line=${failure.line}\n`);
+  }
+  process.exitCode = 1;
+} else {
+  process.stdout.write(`Public-history check passed for ${commits.length} reachable commits and ${blobs.size} unique blobs.\n`);
+}

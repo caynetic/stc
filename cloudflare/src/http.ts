@@ -119,7 +119,7 @@ export function html(
   headers.set("Cache-Control", cacheControl);
   headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; img-src 'self' data: https://img.buymeacoffee.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",
+    "default-src 'self'; img-src 'self' data: https://img.buymeacoffee.com; style-src 'self'; font-src 'self' data:; script-src 'self' https://challenges.cloudflare.com; frame-src https://challenges.cloudflare.com; connect-src 'self' https://challenges.cloudflare.com; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'",
   );
   return new Response(value, { status, headers });
 }

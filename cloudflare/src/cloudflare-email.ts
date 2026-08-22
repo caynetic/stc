@@ -16,7 +16,8 @@ export interface CloudflareEmailInput {
   attachments?: EmailAttachment[];
 }
 
-const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_LOCAL_PATTERN = /^[^\s@]+$/;
+const EMAIL_DOMAIN_LABEL_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
 const TRANSACTIONAL_FROM_NAME = "Serve the Cays";
 const RETRYABLE_CODES = new Set([
   "E_RATE_LIMIT_EXCEEDED",
@@ -59,7 +60,18 @@ export class CloudflareEmailDeliveryError extends Error {
 
 function cleanAddress(value: string, label: string): string {
   const clean = value.trim().toLowerCase();
-  if (!EMAIL_PATTERN.test(clean) || /[\r\n]/.test(clean)) {
+  const at = clean.indexOf("@");
+  const local = at > 0 ? clean.slice(0, at) : "";
+  const domain = at > 0 ? clean.slice(at + 1) : "";
+  const labels = domain.split(".");
+  const valid = clean.length <= 254
+    && local.length > 0
+    && local.length <= 64
+    && at === clean.lastIndexOf("@")
+    && EMAIL_LOCAL_PATTERN.test(local)
+    && labels.length >= 2
+    && labels.every((part) => part.length <= 63 && EMAIL_DOMAIN_LABEL_PATTERN.test(part));
+  if (!valid || /[\r\n]/.test(clean)) {
     throw new CloudflareEmailDeliveryError(`Invalid ${label} address`, "E_VALIDATION_ERROR");
   }
   return clean;

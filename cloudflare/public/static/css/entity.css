@@ -82,6 +82,35 @@
     object-fit: contain;
 }
 
+.event-detail .entity-header .entity-logo-large {
+    width: 100%;
+    max-width: 600px;
+    height: 300px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.event-detail .event-meta {
+    font-size: 1.1rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+    line-height: 1.8;
+}
+
+.event-detail .event-meta i {
+    width: 20px;
+    text-align: center;
+    margin-right: .5rem;
+}
+
+.event-detail .org-description {
+    font-size: 1.25rem;
+    color: #333;
+    margin-bottom: 2rem;
+    font-weight: 500;
+}
+
 .entity-gallery {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
