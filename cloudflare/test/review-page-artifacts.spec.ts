@@ -15,12 +15,14 @@ import type { Env } from "../src/types";
 const baseEnv = env as unknown as Env;
 
 function offlineHtml(html: string): string {
-  return html
-    .replace(/\s*<script[^>]+src="https:\/\/challenges\.cloudflare\.com[^"]+"[^>]*><\/script>/g, "")
-    .replace(/\s*<link[^>]+href="https:\/\/cdnjs\.cloudflare\.com[^"]+"[^>]*>/g, "")
-    .replace(/\s*<link[^>]+rel="canonical"[^>]*>/g, "")
-    .replace(/\s*<link[^>]+rel="(?:icon|apple-touch-icon|manifest)"[^>]*>/g, "")
-    .replace(/\s*<script[^>]+src="\/(?:assets|static)\/[^"]+"[^>]*><\/script>/g, "")
+  const stripTag = (source: string, tag: "script" | "link"): string => {
+    const pattern = tag === "script"
+      ? /<script\b[\s\S]*?<\/script>/gi
+      : /<link\b[^>]*>/gi;
+    return source.replace(pattern, "");
+  };
+
+  return stripTag(stripTag(html, "script"), "link")
     .replaceAll('href="/static/', 'href="../static/')
     .replaceAll('href="/assets/', 'href="../assets/')
     .replaceAll('src="/static/', 'src="../static/')
