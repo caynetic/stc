@@ -4,7 +4,9 @@ on:
   pull_request:
   push:
     branches:
-      - main
+      - '**'
+    tags:
+      - '**'
 
 permissions:
   contents: read
@@ -12,6 +14,7 @@ permissions:
 jobs:
   verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: cloudflare
@@ -31,7 +34,5 @@ jobs:
         run: npm ci
       - name: Verify application and public-repository boundary
         run: npm run verify
-      - name: Fetch all public pull-request refs
-        run: git fetch --no-tags origin '+refs/pull/*:refs/remotes/origin/public-pull/*'
       - name: Verify reachable public history
         run: npm run public:history-check

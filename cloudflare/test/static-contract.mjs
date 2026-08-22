@@ -111,7 +111,10 @@ test("public workflows use immutable action references and full-history verifica
   const ci = readFileSync(path.join(workflowDirectory, "ci.yml"), "utf8");
   assert.match(ci, /fetch-depth:\s*0/);
   assert.match(ci, /persist-credentials:\s*false/);
-  assert.match(ci, /git fetch[^\n]+refs\/pull\/\*[^\n]+refs\/remotes\/origin\/public-pull\/\*/);
+  assert.match(ci, /branches:\s*\n\s*-\s*['"]\*\*['"]/);
+  assert.match(ci, /tags:\s*\n\s*-\s*['"]\*\*['"]/);
+  assert.doesNotMatch(ci, /refs\/pull\/\*/);
+  assert.match(ci, /timeout-minutes:\s*15/);
   assert.match(ci, /npm run public:history-check/);
   const checkoutSteps = workflowFiles
     .map((workflowFile) => readFileSync(workflowFile, "utf8"))
@@ -133,7 +136,14 @@ test("public presentation assets are self-hosted and CSP has no external stylesh
   const fontDirectory = path.join(root, "public", "assets", "fontawesome", "webfonts");
 
   assert.match(pageSources, /href="\/assets\/fontawesome\/css\/all\.min\.css"/);
-  assert.doesNotMatch(allPageSources, /<link[^>]+rel="stylesheet"[^>]+href="https?:/i);
+  for (const match of allPageSources.matchAll(/<link\b[^>]*>/gi)) {
+    const openingTag = match[0];
+    const rel = openingTag.match(/\brel\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    const href = openingTag.match(/\bhref\s*=\s*["']([^"']*)["']/i)?.[1] ?? "";
+    if (/\bstylesheet\b/i.test(rel)) {
+      assert.doesNotMatch(href, /^(?:https?:)?\/\//i, `external stylesheet: ${openingTag}`);
+    }
+  }
   assert.doesNotMatch(pageSources, /<style[ >]/i);
   assert.match(http, /style-src 'self';/);
   assert.doesNotMatch(http, /unsafe-inline|fonts\.googleapis\.com|fonts\.gstatic\.com|cdnjs\.cloudflare\.com/);
@@ -143,6 +153,10 @@ test("public presentation assets are self-hosted and CSP has no external stylesh
   assert.match(fontAwesomeCss, /Font Awesome Free 6\.0\.0/);
   assert.doesNotMatch(fontAwesomeCss, /url\(\s*https?:\/\//i);
   assert.match(fontAwesomeLicense, /Font Awesome Free License/);
+  for (const icon of new Set([...pageSources.matchAll(/\bfa-[a-z0-9-]+/g)].map((match) => match[0]))) {
+    const escaped = icon.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    assert.match(fontAwesomeCss, new RegExp(`\\.${escaped}(?::before|::before|[\\s,{])`), `missing Font Awesome icon ${icon}`);
+  }
   for (const font of [
     "fa-brands-400.woff2",
     "fa-regular-400.woff2",
@@ -159,7 +173,7 @@ test("public presentation assets are self-hosted and CSP has no external stylesh
   }
 
   for (const cssPath of files(path.join(root, "public")).filter((file) => file.endsWith(".css"))) {
-    assert.doesNotMatch(readFileSync(cssPath, "utf8"), /@import\s+(?:url\(\s*)?["']?https?:\/\//i, `${cssPath} imports an external stylesheet`);
+    assert.doesNotMatch(readFileSync(cssPath, "utf8"), /@import\s+(?:url\(\s*)?["']?(?:https?:)?\/\//i, `${cssPath} imports an external stylesheet`);
   }
 });
 

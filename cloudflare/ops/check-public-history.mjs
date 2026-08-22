@@ -11,6 +11,11 @@ const repositoryRoot = process.env.PUBLIC_REPOSITORY_ROOT
 const failures = [];
 const MAX_TEXT_BYTES = 64 * 1024 * 1024;
 const GIT_MAX_BUFFER_BYTES = 128 * 1024 * 1024;
+const MAX_TOTAL_TEXT_BYTES = 512 * 1024 * 1024;
+const MAX_FAILURES = 2_000;
+let scannedTextBytes = 0;
+let failureLimitReached = false;
+const failureKeys = new Set();
 
 function git(args, encoding = "utf8") {
   const result = spawnSync("git", args, {
@@ -25,7 +30,29 @@ function git(args, encoding = "utf8") {
 }
 
 function report(category, commit, file, line = "-") {
-  failures.push({ category, commit, file, line });
+  const safeFile = safeFileName(file);
+  const key = JSON.stringify({ category, commit, file: safeFile, line });
+  if (failureKeys.has(key)) return;
+  if (failureKeys.size >= MAX_FAILURES && category !== "history scan limit") {
+    failureLimitReached = true;
+    return;
+  }
+  failureKeys.add(key);
+  failures.push({ category, commit, file: safeFile, line });
+}
+
+function safeFileName(file) {
+  let safe = file.split("/").map((part) => {
+    if (part.length >= 32 && entropy(part) >= 4.3) return "[redacted]";
+    return part;
+  }).join("/");
+  for (const [, pattern] of credentialPatterns) {
+    safe = safe.replace(pattern, "[redacted]");
+  }
+  return safe.replace(/[\u0000-\u001f\u007f]/g, (character) => {
+    const code = character.codePointAt(0).toString(16).padStart(2, "0");
+    return `\\x${code}`;
+  });
 }
 
 function lineFor(source, index) {
@@ -43,25 +70,45 @@ function entropy(value) {
   return score;
 }
 
+const exactPlaceholderValues = new Set([
+  "account-wide-token",
+  "account-wide-token-must-not-send",
+  "alias-password",
+  "forward-email-api-token",
+  "quarantine/organization_submission/orphan/private",
+  "newsletter-customize-token-1234567890abcdef",
+  "newsletter-alias-password",
+  "private-unsubscribe-token-1234567890",
+  "unsubscribed-customize-token-1234567890abc",
+  "test-event-turnstile-secret",
+  "test-forward-email-webhook-secret-at-least-32-bytes",
+  "test-password-pepper-that-is-at-least-32-bytes",
+  "test-session-secret-that-is-at-least-32-bytes",
+  "test-member-session-secret-that-is-different-and-at-least-32-bytes",
+  "test-ip-hash-key-that-is-at-least-32-bytes",
+  "test-rate-limit-key-that-is-at-least-32-bytes",
+  "test-unsubscribe-secret-at-least-32-bytes",
+  "test-newsletter-confirmation-secret-at-least-32-bytes",
+]);
+
 function isPlaceholder(value) {
-  return /(?:replace|placeholder|example|dummy|changeme|fake|all[-_]?zero|00000000|account-wide|must-not-send|(?:^|[-_])(?:test|fixture|development|preview|local|newsletter|unsubscribe|customize|provider|boundary|member|private|forged|visitor)(?:[-_]|$))/i.test(value);
+  const normalized = value.trim();
+  if (exactPlaceholderValues.has(normalized)) return true;
+  if (/^REPLACE_WITH_[A-Z0-9_]+$/.test(normalized)) return true;
+  if (/^0+$/.test(normalized) || /^0{8}-0{4}-0{4}-0{4}-0{12}$/.test(normalized)) return true;
+  return false;
 }
 
 function isStaticPathLiteral(value) {
-  return /^(?:\/?(?:static|assets)\/|(?:https?:)?\/\/)/i.test(value)
-    || /^(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+$/.test(value)
+  return /^(?:\/?(?:static|assets|quarantine|published)\/|(?:https?:)?\/\/)/i.test(value)
     || /\.(?:avif|gif|jpe?g|png|svg|webp|woff2?|ttf|eot)$/i.test(value);
 }
 
-const secretKeyPattern = /(?:^|[_-])(?:secret|token|password|passwd|access[_-]?key|api[_-]?key|private[_-]?key)(?:$|[_-])/i;
+const secretKeyPattern = /(?:secret|token|password|passwd|credential|auth(?:orization|entication)?|access[_-]?key|api[_-]?key|private[_-]?key)/i;
 
 function isStructuredConfigPath(file) {
   return /(?:^|\/)\.env(?:\.[^/]*)?$/i.test(file)
     || /\.(?:ini|json|jsonc|properties|toml|ya?ml)$/i.test(file);
-}
-
-function isInfrastructurePath(file) {
-  return /(?:wrangler|\.dev\.vars|\.env|\.github\/workflows)/i.test(file);
 }
 
 const credentialPatterns = [
@@ -78,11 +125,11 @@ const credentialPatterns = [
 ];
 
 const forbiddenPathPatterns = [
-  /(?:^|\/)\.env(?:\..*)?$/,
-  /(?:^|\/)\.dev\.vars$/,
-  /(?:^|\/)wrangler\.(?:private|ci)\.jsonc$/,
-  /(?:^|\/)ops\/private(?:\/|$)/,
-  /(?:^|\/)(?:design-previews|private-archive)(?:\/|$)/,
+  /(?:^|\/)\.env(?:\..*)?$/i,
+  /(?:^|\/)\.dev\.vars$/i,
+  /(?:^|\/)wrangler\.(?:private|ci)\.jsonc$/i,
+  /(?:^|\/)ops\/private(?:\/|$)/i,
+  /(?:^|\/)(?:design-previews|private-archive)(?:\/|$)/i,
   /\.(?:pem|p12|pfx|key|sqlite|sqlite3|db|log|zip)$/i,
 ];
 
@@ -118,6 +165,22 @@ function scanContent(source) {
   return findings;
 }
 
+function scanFilePath(file) {
+  const findings = [];
+  for (const [category, pattern] of credentialPatterns) {
+    pattern.lastIndex = 0;
+    if (pattern.test(file)) addFinding(findings, category, "-");
+  }
+  return findings;
+}
+
+function looksLikeSecretValue(candidate, structuredConfig) {
+  const tokenLike = /^[A-Za-z0-9_+/=.-]+$/.test(candidate);
+  if (!tokenLike) return false;
+  if (structuredConfig) return candidate.length >= 12;
+  return tokenLike && (candidate.length >= 24 || entropy(candidate) >= 4.1);
+}
+
 function scanAssignments(source, structuredConfig) {
   const findings = [];
   const lines = source.split("\n");
@@ -138,8 +201,8 @@ function scanAssignments(source, structuredConfig) {
       if (!configKey && !(structuredConfig && keySignal) && !sourceKey) continue;
       if (!quoted && !structuredConfig) continue;
       const candidate = assignment[3] ?? assignment[4] ?? "";
-      if (isPlaceholder(candidate) || isStaticPathLiteral(candidate)) continue;
-      if (candidate.length >= 24 || entropy(candidate) >= 4.1) {
+      if (isPlaceholder(candidate)) continue;
+      if (looksLikeSecretValue(candidate, structuredConfig)) {
         addFinding(findings, "suspicious secret assignment", index + 1);
       }
     }
@@ -191,9 +254,15 @@ function readBlob(blobSha) {
   } else if (buffer.length > MAX_TEXT_BYTES) {
     blob = { text: null, binary: false, oversized: true, contentFindings: [], highEntropyFindings: [] };
   } else {
+    scannedTextBytes += buffer.length;
+    if (scannedTextBytes > MAX_TOTAL_TEXT_BYTES) {
+      failureLimitReached = true;
+      blob = { text: null, binary: false, oversized: true, contentFindings: [], highEntropyFindings: [] };
+      blobs.set(blobSha, blob);
+      return blob;
+    }
     const text = buffer.toString("utf8");
     blob = {
-      text,
       binary: false,
       oversized: false,
       contentFindings: scanContent(text),
@@ -202,7 +271,7 @@ function readBlob(blobSha) {
         config: scanAssignments(text, true),
       },
       highEntropyFindings: scanHighEntropyLiterals(text),
-      infrastructureFindings: null,
+      infrastructureFindings: scanInfrastructure(text),
     };
   }
   blobs.set(blobSha, blob);
@@ -218,7 +287,8 @@ for (const commit of commits) {
     const [, type, blobSha, file] = match;
     if (type !== "blob") continue;
 
-    const exampleException = /(?:^|\/)\.dev\.vars\.example$/.test(file) || /(?:^|\/)\.env\.example$/.test(file);
+    for (const finding of scanFilePath(file)) report(finding.category, commit, file, finding.line);
+    const exampleException = /(?:^|\/)\.dev\.vars\.example$/i.test(file) || /(?:^|\/)\.env\.example$/i.test(file);
     if (!exampleException && forbiddenPathPatterns.some((pattern) => pattern.test(file))) {
       report("forbidden path", commit, file);
     }
@@ -238,12 +308,11 @@ for (const commit of commits) {
     if (!/(?:svg|css|woff2?|json|jsonc|webmanifest)$/i.test(file)) {
       for (const finding of blob.highEntropyFindings) report(finding.category, commit, file, finding.line);
     }
-    if (isInfrastructurePath(file)) {
-      blob.infrastructureFindings ??= scanInfrastructure(blob.text);
-      for (const finding of blob.infrastructureFindings) report(finding.category, commit, file, finding.line);
-    }
+    for (const finding of blob.infrastructureFindings) report(finding.category, commit, file, finding.line);
   }
 }
+
+if (failureLimitReached) report("history scan limit", "-", "-", "-");
 
 const uniqueFailures = [...new Map(failures.map((failure) => [JSON.stringify(failure), failure])).values()];
 if (uniqueFailures.length) {

@@ -1009,7 +1009,7 @@ export function memberDashboardPage(env: Env): Response {
             </form>
           </section>
           <section class="member-panel" id="saved-organizations">
-            <div class="member-panel-heading member-panel-heading-compact"><span class="member-panel-icon" aria-hidden="true"><i class="fas fa-building-circle-check"></i></span><div><span class="member-panel-kicker">Your directory</span><h2>Saved organizations</h2></div></div>
+            <div class="member-panel-heading member-panel-heading-compact"><span class="member-panel-icon" aria-hidden="true"><i class="fas fa-building"></i></span><div><span class="member-panel-kicker">Your directory</span><h2>Saved organizations</h2></div></div>
             <div class="member-dashboard-list" data-saved-organizations><p>Loading…</p></div>
           </section>
           <section class="member-panel" id="saved-events">
@@ -1025,7 +1025,7 @@ export function memberDashboardPage(env: Env): Response {
             <div class="member-dashboard-list" data-past-rsvps><p>Loading…</p></div>
           </section>
           <section class="member-panel member-submissions-panel" id="suggestions">
-            <div class="member-panel-heading member-panel-heading-compact member-panel-heading-with-action"><span class="member-panel-icon" aria-hidden="true"><i class="fas fa-lightbulb"></i></span><div><span class="member-panel-kicker">Community contributions</span><h2>My suggestions</h2><p>Track the organizations and events you’ve sent to the STC review team.</p></div><div class="member-panel-actions"><a class="btn member-primary-button member-panel-action" href="/suggest/event"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Suggest an event</a><a class="btn member-secondary-button member-panel-action" href="/suggest/organization"><i class="fas fa-building-circle-arrow-right" aria-hidden="true"></i> Suggest an organization</a></div></div>
+            <div class="member-panel-heading member-panel-heading-compact member-panel-heading-with-action"><span class="member-panel-icon" aria-hidden="true"><i class="fas fa-lightbulb"></i></span><div><span class="member-panel-kicker">Community contributions</span><h2>My suggestions</h2><p>Track the organizations and events you’ve sent to the STC review team.</p></div><div class="member-panel-actions"><a class="btn member-primary-button member-panel-action" href="/suggest/event"><i class="fas fa-calendar-plus" aria-hidden="true"></i> Suggest an event</a><a class="btn member-secondary-button member-panel-action" href="/suggest/organization"><i class="fas fa-building" aria-hidden="true"></i> Suggest an organization</a></div></div>
             <div class="member-dashboard-list" data-member-submissions><p>Loading…</p></div>
           </section>
           <section class="member-panel member-danger-zone" id="account">
@@ -1115,7 +1115,7 @@ export function privacyPage(env: Env): Response {
 export function unsubscribePage(env: Env, token: string): Response {
   const body = `<div class="container member-auth-shell">
     <section class="member-auth-card member-action-card" aria-labelledby="unsubscribe-title">
-      <div class="member-auth-card-heading"><span class="member-auth-card-icon" aria-hidden="true"><i class="fas fa-envelope-circle-xmark"></i></span><span class="member-eyebrow">Community updates</span><h1 id="unsubscribe-title">Unsubscribe</h1><p>Stop future Serve the Cays community updates?</p></div>
+      <div class="member-auth-card-heading"><span class="member-auth-card-icon" aria-hidden="true"><i class="fas fa-envelope"></i></span><span class="member-eyebrow">Community updates</span><h1 id="unsubscribe-title">Unsubscribe</h1><p>Stop future Serve the Cays community updates?</p></div>
       <div class="member-action-summary"><i class="fas fa-circle-info" aria-hidden="true"></i><p>This will unsubscribe the address associated with this private link. Requested sign-in and account messages remain available.</p></div>
       <button class="btn member-danger-button" type="button" data-unsubscribe-token="${escapeHtml(token)}">Confirm unsubscribe</button>
       <div class="form-status" role="status" aria-live="polite" hidden></div>
@@ -1130,7 +1130,7 @@ export function newsletterConfirmationPage(env: Env): Response {
   const body = `<div class="container member-auth-shell" data-newsletter-confirm>
     <section class="member-auth-card member-action-card" aria-labelledby="newsletter-confirm-title">
       <div class="member-auth-card-heading"><span class="member-auth-card-icon" aria-hidden="true"><i class="fas fa-envelope-open-text"></i></span><span class="member-eyebrow">Community updates</span><h1 id="newsletter-confirm-title">Confirm your subscription</h1><p>One final step keeps Serve the Cays updates permission-based.</p></div>
-      <div class="member-action-summary"><i class="fas fa-shield-heart" aria-hidden="true"></i><p>Choose Confirm below to verify this email address. You will not receive community updates until confirmation succeeds.</p></div>
+      <div class="member-action-summary"><i class="fas fa-shield" aria-hidden="true"></i><p>Choose Confirm below to verify this email address. You will not receive community updates until confirmation succeeds.</p></div>
       <button class="btn member-primary-button" type="button" data-newsletter-confirm-continue disabled>Confirm community updates</button>
       <div class="form-status" role="status" aria-live="polite" data-newsletter-confirm-status>Preparing your private confirmation link…</div>
       <p class="member-fine-print member-auth-back"><a href="/"><i class="fas fa-arrow-left" aria-hidden="true"></i> Return to home</a></p>
