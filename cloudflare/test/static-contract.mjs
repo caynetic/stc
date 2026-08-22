@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import test from "node:test";
@@ -111,6 +111,7 @@ test("public workflows use immutable action references and full-history verifica
   const ci = readFileSync(path.join(workflowDirectory, "ci.yml"), "utf8");
   assert.match(ci, /fetch-depth:\s*0/);
   assert.match(ci, /persist-credentials:\s*false/);
+  assert.match(ci, /git fetch[^\n]+refs\/pull\/\*[^\n]+refs\/remotes\/origin\/public-pull\/\*/);
   assert.match(ci, /npm run public:history-check/);
   const checkoutSteps = workflowFiles
     .map((workflowFile) => readFileSync(workflowFile, "utf8"))
@@ -126,11 +127,12 @@ test("public presentation assets are self-hosted and CSP has no external stylesh
     .join("\n");
   const pageSources = readFileSync(path.join(root, "src", "pages.ts"), "utf8");
   const http = readFileSync(path.join(root, "src", "http.ts"), "utf8");
-  const fontAwesomeCss = readFileSync(path.join(root, "public", "assets", "fontawesome", "all.min.css"), "utf8");
+  const fontAwesomeCssPath = path.join(root, "public", "assets", "fontawesome", "css", "all.min.css");
+  const fontAwesomeCss = readFileSync(fontAwesomeCssPath, "utf8");
   const fontAwesomeLicense = readFileSync(path.join(root, "public", "assets", "fontawesome", "LICENSE.txt"), "utf8");
   const fontDirectory = path.join(root, "public", "assets", "fontawesome", "webfonts");
 
-  assert.match(pageSources, /href="\/assets\/fontawesome\/all\.min\.css"/);
+  assert.match(pageSources, /href="\/assets\/fontawesome\/css\/all\.min\.css"/);
   assert.doesNotMatch(allPageSources, /<link[^>]+rel="stylesheet"[^>]+href="https?:/i);
   assert.doesNotMatch(pageSources, /<style[ >]/i);
   assert.match(http, /style-src 'self';/);
@@ -148,7 +150,16 @@ test("public presentation assets are self-hosted and CSP has no external stylesh
     "fa-v4compatibility.woff2",
   ]) {
     assert.ok(files(fontDirectory).includes(path.join(fontDirectory, font)), `missing ${font}`);
-    assert.ok(fontAwesomeCss.includes(`webfonts/${font}`), `CSS does not reference ${font}`);
+    const relativeFontPath = `../webfonts/${font}`;
+    assert.ok(fontAwesomeCss.includes(relativeFontPath), `CSS does not reference ${font}`);
+    assert.ok(
+      existsSync(path.resolve(path.dirname(fontAwesomeCssPath), relativeFontPath)),
+      `CSS font URL does not resolve to ${font}`,
+    );
+  }
+
+  for (const cssPath of files(path.join(root, "public")).filter((file) => file.endsWith(".css"))) {
+    assert.doesNotMatch(readFileSync(cssPath, "utf8"), /@import\s+(?:url\(\s*)?["']?https?:\/\//i, `${cssPath} imports an external stylesheet`);
   }
 });
 

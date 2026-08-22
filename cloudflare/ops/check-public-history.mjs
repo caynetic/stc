@@ -9,13 +9,14 @@ const repositoryRoot = process.env.PUBLIC_REPOSITORY_ROOT
   ? path.resolve(process.env.PUBLIC_REPOSITORY_ROOT)
   : path.resolve(cloudflareRoot, "..");
 const failures = [];
-const MAX_TEXT_BYTES = 2_000_000;
+const MAX_TEXT_BYTES = 64 * 1024 * 1024;
+const GIT_MAX_BUFFER_BYTES = 128 * 1024 * 1024;
 
 function git(args, encoding = "utf8") {
   const result = spawnSync("git", args, {
     cwd: repositoryRoot,
     encoding,
-    maxBuffer: 64 * 1024 * 1024,
+    maxBuffer: GIT_MAX_BUFFER_BYTES,
   });
   if (result.status !== 0) {
     throw new Error(`git ${args.join(" ")} failed`);
@@ -43,15 +44,24 @@ function entropy(value) {
 }
 
 function isPlaceholder(value) {
-  return /(?:replace|placeholder|example|dummy|changeme|test[-_ ]only|local[-_ ]only|fake|all[-_]?zero|00000000)/i.test(value);
+  return /(?:replace|placeholder|example|dummy|changeme|fake|all[-_]?zero|00000000|account-wide|must-not-send|(?:^|[-_])(?:test|fixture|development|preview|local|newsletter|unsubscribe|customize|provider|boundary|member|private|forged|visitor)(?:[-_]|$))/i.test(value);
+}
+
+function isStaticPathLiteral(value) {
+  return /^(?:\/?(?:static|assets)\/|(?:https?:)?\/\/)/i.test(value)
+    || /^(?:[A-Za-z0-9_.-]+\/)+[A-Za-z0-9_.-]+$/.test(value)
+    || /\.(?:avif|gif|jpe?g|png|svg|webp|woff2?|ttf|eot)$/i.test(value);
+}
+
+const secretKeyPattern = /(?:^|[_-])(?:secret|token|password|passwd|access[_-]?key|api[_-]?key|private[_-]?key)(?:$|[_-])/i;
+
+function isStructuredConfigPath(file) {
+  return /(?:^|\/)\.env(?:\.[^/]*)?$/i.test(file)
+    || /\.(?:ini|json|jsonc|properties|toml|ya?ml)$/i.test(file);
 }
 
 function isInfrastructurePath(file) {
   return /(?:wrangler|\.dev\.vars|\.env|\.github\/workflows)/i.test(file);
-}
-
-function isFixturePath(file) {
-  return /(?:^|\/)test\//.test(file) || /(?:^|\/)vitest\.config\.ts$/.test(file) || /(?:^|\/)src\/email-layout\.ts$/.test(file);
 }
 
 const credentialPatterns = [
@@ -85,7 +95,119 @@ if (!commits.length) {
   process.exit(1);
 }
 
+function addFinding(findings, category, line) {
+  findings.push({ category, line });
+}
+
+function scanContent(source) {
+  const findings = [];
+  for (const [category, pattern] of credentialPatterns) {
+    pattern.lastIndex = 0;
+    for (const match of source.matchAll(pattern)) {
+      addFinding(findings, category, lineFor(source, match.index));
+    }
+  }
+
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (/\/(?:Users|home)\/[A-Za-z0-9._-]+(?:\/|$)/.test(line) || /[A-Za-z]:\\Users\\[^\\\s]+\\/.test(line)) {
+      addFinding(findings, "absolute developer path", index + 1);
+    }
+  }
+  return findings;
+}
+
+function scanAssignments(source, structuredConfig) {
+  const findings = [];
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const assignments = line.matchAll(/\b([A-Za-z][A-Za-z0-9_-]*)\b\s*["']?\s*[:=]\s*(?:(['"`])([^'"`\r\n]{12,})\2|([^\s,#}\]]{12,}))/g);
+    for (const assignment of assignments) {
+      const key = assignment[1];
+      const quoted = Boolean(assignment[2]);
+      const keySignal = secretKeyPattern.test(key)
+        || /(?:secret|token|password|passwd|accessKey|apiKey|privateKey)$/i.test(key);
+      const configKey = /^[A-Z][A-Z0-9_-]*$/.test(key) && keySignal;
+      const sourceKey = quoted && keySignal && (
+        /[A-Z]/.test(key.slice(1))
+        || /[_-]/.test(key)
+        || /^(?:secret|token|password|passwd)$/i.test(key)
+      );
+      if (!configKey && !(structuredConfig && keySignal) && !sourceKey) continue;
+      if (!quoted && !structuredConfig) continue;
+      const candidate = assignment[3] ?? assignment[4] ?? "";
+      if (isPlaceholder(candidate) || isStaticPathLiteral(candidate)) continue;
+      if (candidate.length >= 24 || entropy(candidate) >= 4.1) {
+        addFinding(findings, "suspicious secret assignment", index + 1);
+      }
+    }
+  }
+  return findings;
+}
+
+function scanHighEntropyLiterals(source) {
+  const findings = [];
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    for (const literal of line.matchAll(/(["'`])([A-Za-z0-9_+/=.-]{32,200})\1/g)) {
+      const candidate = literal[2];
+      if (isPlaceholder(candidate) || isStaticPathLiteral(candidate) || /servethecays|cloudflare/i.test(candidate)) continue;
+      if (entropy(candidate) >= 4.3) addFinding(findings, "high-entropy literal", index + 1);
+    }
+  }
+  return findings;
+}
+
+function scanInfrastructure(source) {
+  const findings = [];
+  const lines = source.split("\n");
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    const uuids = line.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? [];
+    for (const uuid of uuids) {
+      if (!/^0{8}-0{4}-0{4}-0{4}-0{12}$/i.test(uuid)) {
+        addFinding(findings, "non-placeholder infrastructure ID", index + 1);
+      }
+    }
+    const ids = line.matchAll(/\b(?:account|database|zone|namespace|queue|bucket)[_-]?(?:id|identifier)?\b\s*[:=]\s*["']([0-9a-f]{32})["']/gi);
+    for (const id of ids) {
+      if (!/^0+$/.test(id[1])) addFinding(findings, "non-placeholder infrastructure ID", index + 1);
+    }
+  }
+  return findings;
+}
+
 const blobs = new Map();
+
+function readBlob(blobSha) {
+  if (blobs.has(blobSha)) return blobs.get(blobSha);
+  const buffer = git(["cat-file", "blob", blobSha], "buffer");
+  let blob;
+  if (buffer.includes(0)) {
+    blob = { text: null, binary: true, oversized: false, contentFindings: [], highEntropyFindings: [] };
+  } else if (buffer.length > MAX_TEXT_BYTES) {
+    blob = { text: null, binary: false, oversized: true, contentFindings: [], highEntropyFindings: [] };
+  } else {
+    const text = buffer.toString("utf8");
+    blob = {
+      text,
+      binary: false,
+      oversized: false,
+      contentFindings: scanContent(text),
+      assignmentFindings: {
+        source: scanAssignments(text, false),
+        config: scanAssignments(text, true),
+      },
+      highEntropyFindings: scanHighEntropyLiterals(text),
+      infrastructureFindings: null,
+    };
+  }
+  blobs.set(blobSha, blob);
+  return blob;
+}
 
 for (const commit of commits) {
   const tree = git(["ls-tree", "-r", "-z", "--full-tree", commit]);
@@ -101,64 +223,24 @@ for (const commit of commits) {
       report("forbidden path", commit, file);
     }
 
-    let blob = blobs.get(blobSha);
-    if (!blob) {
-      const buffer = git(["cat-file", "blob", blobSha], "buffer");
-      if (buffer.length > MAX_TEXT_BYTES || buffer.includes(0)) {
-        blob = { text: null };
-      } else {
-        blob = { text: buffer.toString("utf8") };
-      }
-      blobs.set(blobSha, blob);
-    }
-    if (!blob.text) continue;
-
-    const source = blob.text;
-    for (const [category, pattern] of credentialPatterns) {
-      pattern.lastIndex = 0;
-      for (const match of source.matchAll(pattern)) {
-        report(category, commit, file, lineFor(source, match.index));
-      }
+    const blob = readBlob(blobSha);
+    if (blob.binary) continue;
+    if (blob.oversized) {
+      report("oversized text blob", commit, file);
+      continue;
     }
 
-    const lines = source.split("\n");
-    for (let index = 0; index < lines.length; index += 1) {
-      const line = lines[index];
-      if (/\/(?:Users|home)\/[A-Za-z0-9._-]+(?:\/|$)/.test(line) || /[A-Za-z]:\\Users\\[^\\\s]+\\/.test(line)) {
-        report("absolute developer path", commit, file, index + 1);
-      }
-
-      if (!isFixturePath(file)) {
-        const assignments = line.matchAll(/\b([A-Z][A-Z0-9_-]*(?:SECRET|TOKEN|PASSWORD|PASSWD|API[_-]?KEY|PRIVATE[_-]?KEY)[A-Z0-9_-]*)\b\s*[:=]\s*(["'`])([^"'`\r\n]{12,})\2/g);
-        for (const assignment of assignments) {
-          const candidate = assignment[3];
-          if (isPlaceholder(candidate)) continue;
-          if (candidate.length >= 24 || entropy(candidate) >= 4.1) {
-            report("suspicious secret assignment", commit, file, index + 1);
-          }
-        }
-      }
-
-      if (!isFixturePath(file) && !/\.(?:svg|css|woff2?|json|jsonc|webmanifest)$/i.test(file)) {
-        for (const literal of line.matchAll(/(["'`])([A-Za-z0-9_+/=.-]{32,200})\1/g)) {
-          const candidate = literal[2];
-          if (isPlaceholder(candidate) || /servethecays|cloudflare/i.test(candidate)) continue;
-          if (entropy(candidate) >= 4.3) report("high-entropy literal", commit, file, index + 1);
-        }
-      }
-
-      if (isInfrastructurePath(file)) {
-        const uuids = line.match(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi) ?? [];
-        for (const uuid of uuids) {
-          if (!/^0{8}-0{4}-0{4}-0{4}-0{12}$/i.test(uuid)) {
-            report("non-placeholder infrastructure ID", commit, file, index + 1);
-          }
-        }
-        const ids = line.matchAll(/\b(?:account|database|zone|namespace|queue|bucket)[_-]?(?:id|identifier)?\b\s*[:=]\s*["']([0-9a-f]{32})["']/gi);
-        for (const id of ids) {
-          if (!/^0+$/.test(id[1])) report("non-placeholder infrastructure ID", commit, file, index + 1);
-        }
-      }
+    for (const finding of blob.contentFindings) report(finding.category, commit, file, finding.line);
+    const assignmentFindings = isStructuredConfigPath(file)
+      ? blob.assignmentFindings.config
+      : blob.assignmentFindings.source;
+    for (const finding of assignmentFindings) report(finding.category, commit, file, finding.line);
+    if (!/(?:svg|css|woff2?|json|jsonc|webmanifest)$/i.test(file)) {
+      for (const finding of blob.highEntropyFindings) report(finding.category, commit, file, finding.line);
+    }
+    if (isInfrastructurePath(file)) {
+      blob.infrastructureFindings ??= scanInfrastructure(blob.text);
+      for (const finding of blob.infrastructureFindings) report(finding.category, commit, file, finding.line);
     }
   }
 }

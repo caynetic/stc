@@ -151,7 +151,7 @@ function publicLayout(options: LayoutOptions): Response {
     <link rel="icon" type="image/png" sizes="16x16" href="/static/images/favicon-16x16.png">
     <link rel="manifest" href="/static/images/site.webmanifest">
 
-    <link rel="stylesheet" href="/assets/fontawesome/all.min.css">
+    <link rel="stylesheet" href="/assets/fontawesome/css/all.min.css">
 
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/flash.css">

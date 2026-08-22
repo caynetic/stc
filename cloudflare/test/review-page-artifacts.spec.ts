@@ -15,7 +15,11 @@ import type { Env } from "../src/types";
 const baseEnv = env as unknown as Env;
 
 function offlineHtml(html: string): string {
-  const stripTag = (source: string, tag: "script" | "link"): string => {
+  const stripTag = (
+    source: string,
+    tag: "script" | "link",
+    shouldRemove: (openingTag: string) => boolean,
+  ): string => {
     const lower = source.toLowerCase();
     const prefix = `<${tag}`;
     let cursor = 0;
@@ -28,6 +32,7 @@ function offlineHtml(html: string): string {
       }
       const boundary = source[start + prefix.length] ?? "";
       if (boundary && ![" ", "\t", "\n", "\r", ">", "/"].includes(boundary)) {
+        output += source.slice(cursor, start + prefix.length);
         cursor = start + prefix.length;
         continue;
       }
@@ -36,24 +41,38 @@ function offlineHtml(html: string): string {
         output += source.slice(cursor);
         break;
       }
-      output += source.slice(cursor, start);
       if (tag === "script") {
         const closeStart = lower.indexOf("</script", openEnd + 1);
         const closeEnd = closeStart < 0 ? -1 : source.indexOf(">", closeStart);
         if (closeEnd < 0) {
-          output += source.slice(start, openEnd + 1);
-          cursor = openEnd + 1;
-          continue;
+          output += source.slice(cursor);
+          break;
+        }
+        if (!shouldRemove(source.slice(start, openEnd + 1))) {
+          output += source.slice(cursor, closeEnd + 1);
+        } else {
+          output += source.slice(cursor, start);
         }
         cursor = closeEnd + 1;
+      } else if (shouldRemove(source.slice(start, openEnd + 1))) {
+        output += source.slice(cursor, start);
+        cursor = openEnd + 1;
       } else {
+        output += source.slice(cursor, openEnd + 1);
         cursor = openEnd + 1;
       }
     }
     return output;
   };
 
-  return stripTag(stripTag(html, "script"), "link")
+  const withoutScripts = stripTag(html, "script", () => true);
+  const withoutOfflineLinks = stripTag(withoutScripts, "link", (openingTag) => {
+    if (/\brel\s*=\s*["'][^"']*\b(?:canonical|icon|apple-touch-icon|manifest)\b/i.test(openingTag)) return true;
+    return /\brel\s*=\s*["'][^"']*\bstylesheet\b/i.test(openingTag)
+      && /\bhref\s*=\s*["']https?:\/\//i.test(openingTag);
+  });
+
+  return withoutOfflineLinks
     .replaceAll('href="/static/', 'href="../static/')
     .replaceAll('href="/assets/', 'href="../assets/')
     .replaceAll('src="/static/', 'src="../static/')
@@ -92,4 +111,12 @@ it("exports representative protected, auth, confirmation, and error renderers fo
   expect(files["states/newsletter-confirmation.html"]).toContain("Confirm your subscription");
   expect(files["states/unsubscribe.html"]).toContain("Confirm unsubscribe");
   expect(files["states/server-error.html"]).toContain("A squall rolled through our servers");
+  expect(files["states/admin.html"]).toContain('href="../static/css/style.css"');
+  expect(files["states/admin.html"]).toContain('href="../assets/styles.css"');
+
+  const literalMarkup = offlineHtml('<!doctype html><head><link rel="canonical" href="https://servethecays.com/example"><link rel="stylesheet" href="https://cdn.example.invalid/style.css"><link rel="stylesheet" href="/static/css/style.css"><scripture>keep this text</scripture></head><body></body>');
+  expect(literalMarkup).toContain('<link rel="stylesheet" href="../static/css/style.css">');
+  expect(literalMarkup).not.toContain("cdn.example.invalid");
+  expect(literalMarkup).not.toContain('rel="canonical"');
+  expect(literalMarkup).toContain("<scripture>keep this text</scripture>");
 });
