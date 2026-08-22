@@ -61,6 +61,7 @@ import {
   processEmailJobs,
   transactionalEmailDeliveryEnabled,
 } from "./email";
+import { EMAIL_LOGO_PATH } from "./email-layout";
 import {
   developmentNewsletterInbox,
   confirmNewsletterSubscription,
@@ -242,8 +243,11 @@ function canonicalRedirectLocation(url: URL, env: Env): string {
   return destination.toString();
 }
 
-function secureStaticAsset(response: Response): Response {
+function secureStaticAsset(response: Response, path: string): Response {
   const headers = new Headers(response.headers);
+  if (response.ok && path === EMAIL_LOGO_PATH) {
+    headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  }
   const baseline = securityHeaders();
   baseline.delete("Content-Type");
   baseline.forEach((value, name) => headers.set(name, value));
@@ -274,7 +278,7 @@ async function route(request: Request, env: Env, ctx?: ExecutionContext): Promis
   }
 
   if (path.startsWith("/assets/") || path.startsWith("/static/")) {
-    return secureStaticAsset(await env.ASSETS.fetch(request));
+    return secureStaticAsset(await env.ASSETS.fetch(request), path);
   }
 
   if (!memberApplicationEnabled(env) && memberApplicationPath(path)) {

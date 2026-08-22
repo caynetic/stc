@@ -52,7 +52,7 @@ describe("newsletter consent hardening", () => {
     const capture = JSON.parse(sent!.capture_json) as { text: string; html: string; raw: string };
     const token = capture.text.match(/newsletter\/confirm#token=([A-Za-z0-9_-]+)/)?.[1];
     expect(token).toBeTruthy();
-    expect(capture.html).toContain("/static/images/logo.png");
+    expect(capture.html).toContain("/static/images/email-logo.5a81761f5371.png");
     expect(capture.html).toContain("@media only screen and (max-width: 520px)");
     expect(capture.html).toContain("a[x-apple-data-detectors]");
     expect(capture.raw).not.toContain("List-Unsubscribe:");

@@ -1,4 +1,4 @@
-import { RESPONSIVE_EMAIL_STYLES } from "./email-layout";
+import { EMAIL_LOGO_PATH, RESPONSIVE_EMAIL_STYLES } from "./email-layout";
 import {
   ForwardEmailDeliveryError,
   providerIdentifier,
@@ -189,7 +189,7 @@ export function buildNewsletterConfirmationMessage(
           <tr><td height="4" style="height:4px;background:#00b6a8;font-size:0;line-height:0">&nbsp;</td></tr>
           <tr><td class="stc-email-content" style="padding:26px 28px 30px">
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
-              <td width="58" valign="middle" style="width:58px;vertical-align:middle"><img src="${origin}/static/images/logo.png" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border:0"></td>
+              <td width="58" valign="middle" style="width:58px;vertical-align:middle"><img src="${origin}${EMAIL_LOGO_PATH}" width="48" height="48" alt="" style="display:block;width:48px;height:48px;border:0"></td>
               <td valign="middle" style="vertical-align:middle"><span style="display:block;color:#153c38;font-size:20px;font-weight:700;line-height:1.2">Serve the Cays</span><span style="display:block;margin-top:4px;color:#6d7c79;font-size:10px;font-weight:700;line-height:1.2;letter-spacing:.13em;text-transform:uppercase">Community in action</span></td>
             </tr></table>
             <div style="width:28px;height:3px;margin:24px 0 14px;background:#ff66a1;font-size:0;line-height:0">&nbsp;</div>

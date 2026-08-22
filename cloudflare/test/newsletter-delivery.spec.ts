@@ -273,7 +273,7 @@ describe("newsletter provider split", () => {
     expect(capture.html).toContain("Weekly event update");
     expect(capture.html).toContain("Upcoming community event");
     expect(capture.html).toContain("Community in action");
-    expect(capture.html).toContain("/static/images/logo.png");
+    expect(capture.html).toContain("/static/images/email-logo.5a81761f5371.png");
     expect(capture.html).toContain("@media only screen and (max-width: 520px)");
     expect(capture.html).toContain('class="stc-event-card-cell"');
 

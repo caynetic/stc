@@ -40,7 +40,7 @@ describe("routing security", () => {
     const page = await response.text();
 
     expect(response.status).toBe(200);
-    expect(page).toContain("Serve the Cays is operated and maintained by");
+    expect(page).toContain("Serve the Cays is an initiative of");
     expect(page).toContain('href="https://caynetic.ltd"');
     expect(page).toContain("Caynetic Ltd.</a>");
     expect(page).not.toContain("https://caynetic.com");
@@ -73,5 +73,30 @@ describe("routing security", () => {
     );
     expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
     expect(response.headers.get("Cross-Origin-Resource-Policy")).toBe("same-origin");
+  });
+
+  it("gives the content-hashed email logo an immutable browser cache policy", async () => {
+    const imageBytes = new Uint8Array([137, 80, 78, 71]);
+    const assets = {
+      fetch: async () => new Response(imageBytes, {
+        headers: {
+          "Content-Type": "image/png",
+          "Cache-Control": "public, max-age=0, must-revalidate",
+          ETag: '"email-logo-version"',
+        },
+      }),
+    } as unknown as Fetcher;
+
+    const response = await call(
+      new Request(`${APP_ORIGIN}/static/images/email-logo.5a81761f5371.png`),
+      { ASSETS: assets },
+    );
+
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(imageBytes);
+    expect(response.headers.get("Content-Type")).toBe("image/png");
+    expect(response.headers.get("Cache-Control")).toBe("public, max-age=31536000, immutable");
+    expect(response.headers.get("ETag")).toBe('"email-logo-version"');
+    expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
   });
 });

@@ -94,7 +94,7 @@ describe("email provider boundary", () => {
     expect(String(body.emails[0].html)).toContain("Your secure sign-in link");
     expect(String(body.emails[0].html)).toContain("Sign in to My STC");
     expect(String(body.emails[0].html)).toContain("Community in action");
-    expect(String(body.emails[0].html)).toContain("/static/images/logo.png");
+    expect(String(body.emails[0].html)).toContain("/static/images/email-logo.5a81761f5371.png");
   });
 
   it("configures provider metadata without putting credentials in test variables", () => {
