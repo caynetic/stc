@@ -70,7 +70,7 @@ provider credentials in Git.
 
 ```text
 .
-├── .github/                 CI, opt-in deployment, and dependency updates
+├── .github/                 CI and opt-in deployment workflows
 ├── docs/                    Public architecture documentation
 └── cloudflare/
     ├── migrations/          Ordered D1 schema migrations
