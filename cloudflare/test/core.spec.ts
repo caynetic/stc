@@ -304,7 +304,9 @@ describe("Serve the Cays Cloudflare backend", () => {
     const organizationSuggestion = await call(new Request(`${APP_ORIGIN}/suggest/organization`));
     const eventSuggestion = await call(new Request(`${APP_ORIGIN}/suggest/event`));
     expect(home.status).toBe(200);
-    expect(await home.text()).toContain("Welcome to Serve the Cays");
+    const homeHtml = await home.text();
+    expect(homeHtml).toContain("Welcome to Serve the Cays");
+    expect(homeHtml).toContain('<p class="footer-version">Version 1.5</p>');
     expect(organizations.status).toBe(200);
     expect(await organizations.text()).not.toContain("Suggest an Organization");
     expect(organizationSuggestion.status).toBe(303);

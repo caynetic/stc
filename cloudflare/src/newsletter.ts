@@ -594,6 +594,43 @@ export async function ingestForwardEmailEvent(request: Request, env: Env): Promi
   const recipient = normalizedEmail(payload.recipient);
   if (!recipient) throw new ApiError(400, "invalid_event", "The email event recipient is invalid.");
   const providerMessageId = boundedString(payload.email_id, 500);
+  const entityReference = providerHeader(payload.headers, "x-entity-ref-id")
+    .replace(/[^A-Za-z0-9_-]/g, "")
+    .slice(0, 100);
+  const relevantMessage = await env.DB.prepare(
+    `SELECT 1 AS relevant
+     WHERE EXISTS (
+       SELECT 1 FROM newsletter_confirmation_requests
+       WHERE email = ? AND (
+         (? <> '' AND provider_message_id = ?)
+         OR (? <> '' AND id = ?)
+       )
+     ) OR EXISTS (
+       SELECT 1 FROM newsletter_deliveries
+       WHERE recipient_email = ? AND (
+         (? <> '' AND provider_message_id = ?)
+         OR (? <> '' AND id = ?)
+       )
+     )`,
+  ).bind(
+    recipient,
+    providerMessageId,
+    providerMessageId,
+    entityReference,
+    entityReference,
+    recipient,
+    providerMessageId,
+    providerMessageId,
+    entityReference,
+    entityReference,
+  ).first<{ relevant: number }>();
+  if (!relevantMessage) {
+    // Forward Email webhooks can be account-wide. Acknowledge unrelated,
+    // correctly signed events without retaining their recipient or payload.
+    // Recipient identity alone is not enough: another Caynetic message could
+    // have been sent to the same address through the shared provider account.
+    return json({ status: "success" });
+  }
   const feedbackId = boundedString(payload.feedback_id, 500);
   const explicitType = boundedString(payload.event_type ?? payload.type, 50).toLowerCase();
   const eventType: "bounce" | "complaint" = explicitType === "complaint" || Boolean(feedbackId)
@@ -622,9 +659,6 @@ export async function ingestForwardEmailEvent(request: Request, env: Env): Promi
     boundedString(payload.response, 500),
     boundedString(bounce.message, 500),
   ].filter(Boolean).join(" | ").slice(0, 1000);
-  const entityReference = providerHeader(payload.headers, "x-entity-ref-id")
-    .replace(/[^A-Za-z0-9_-]/g, "")
-    .slice(0, 100);
   const now = new Date().toISOString();
   const payloadSha = await sha256Hex(exactBody);
   const providerEventHash = await keyedHash(

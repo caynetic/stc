@@ -254,6 +254,10 @@
   border-color: #000;
 }
 
+.stc-app-surface [hidden] {
+  display: none !important;
+}
+
 .stc-app-surface .btn[aria-busy="true"] {
   display: inline-flex;
   align-items: center;
@@ -308,6 +312,10 @@
   font-weight: 700;
   letter-spacing: 0.11em;
   text-transform: uppercase;
+}
+
+.stc-app-surface .member-auth-card-icon + .member-eyebrow {
+  margin-left: 0.5rem;
 }
 
 /* The organization suggestion form is a protected My STC contribution page,

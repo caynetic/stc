@@ -162,6 +162,33 @@ describe("newsletter provider event integrity", () => {
       status: "failed",
     });
   });
+
+  it("acknowledges signed account-wide events without retaining unrelated messages", async () => {
+    const unrelatedRecipient = await signedWebhook({
+      email_id: "provider-unrelated",
+      recipient: "unrelated@example.org",
+      response: "421 4.4.2 Network connection timed out",
+      response_code: 421,
+      bounce: { category: "network", code: 421 },
+    });
+    expect(unrelatedRecipient.status).toBe(200);
+
+    await seedDelivery("shared-recipient@example.org", "provider-stc-message");
+    const unrelatedMessage = await signedWebhook({
+      email_id: "provider-other-caynetic-message",
+      recipient: "shared-recipient@example.org",
+      response: "421 4.4.2 Network connection timed out",
+      response_code: 421,
+      bounce: { category: "network", code: 421 },
+    });
+    expect(unrelatedMessage.status).toBe(200);
+    expect((await baseEnv.DB.prepare(
+      "SELECT COUNT(*) AS value FROM newsletter_provider_events",
+    ).first<{ value: number }>())?.value).toBe(0);
+    expect((await baseEnv.DB.prepare(
+      "SELECT COUNT(*) AS value FROM newsletter_suppressions",
+    ).first<{ value: number }>())?.value).toBe(0);
+  });
 });
 
 describe("newsletter uncertain delivery reconciliation", () => {
