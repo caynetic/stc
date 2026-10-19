@@ -1,16 +1,22 @@
 # Serve the Cays
 
-Serve the Cays is a Bahamian community directory for finding organizations,
-discovering events, and turning interest into practical participation. This
-repository contains the website, member experience, moderation tools, outreach
-ledger, and news publishing system behind
-[servethecays.com](https://servethecays.com).
+**Find a cause. Meet your community. Make a difference across The Bahamas.**
 
-The codebase is prepared for public release so people can understand how the
-service is built. Live credentials, resource identifiers, personal information,
-operational evidence, and recovery records are intentionally kept outside Git.
+Serve the Cays helps people find organizations, discover events, and take part
+in their communities. This repository shares the application code behind
+[servethecays.com](https://servethecays.com/), including the website, member
+experience, moderation tools, outreach ledger, and news publishing system.
 
-## What the application includes
+[Visit the website](https://servethecays.com/) ·
+[Organizations](https://servethecays.com/organizations) ·
+[Events](https://servethecays.com/events) · [Run locally](#run-it-locally) ·
+[Contribute](CONTRIBUTING.md)
+
+[![Serve the Cays illustration of organization discovery, search filters, and community events](docs/images/serve-the-cays-illustration.webp)](https://servethecays.com/)
+
+*Project illustration from [Caynetic.com](https://caynetic.com/#products).*
+
+## What the codebase includes
 
 - public organization and event directories with structured profiles;
 - passwordless member accounts, saved listings, RSVPs, and suggestions;
@@ -24,6 +30,22 @@ operational evidence, and recovery records are intentionally kept outside Git.
   reconciliation;
 - retention jobs, audit events, idempotency controls, and recovery-aware media
   cleanup.
+
+Feature activation depends on the deployment's configuration and acceptance
+checks. See [Deployment](#deployment) before enabling member or email features
+on a fork. Keep live credentials, resource identifiers, personal information,
+operational evidence, and recovery records outside Git.
+
+## Documentation
+
+| Guide | Start here for |
+| --- | --- |
+| [Local development](#run-it-locally) | Running an isolated copy with demonstration data |
+| [Application guide](cloudflare/README.md) | Routes, member flows, authentication, and data lifecycle |
+| [Architecture](docs/ARCHITECTURE.md) | Request, storage, media, email, and publishing boundaries |
+| [Self-hosting](docs/SELF_HOSTING.md) | Configuring your own Cloudflare resources |
+| [Deployment and recovery](cloudflare/ops/production-runbook.md) | Release gates, migrations, verification, and rollback |
+| [Contributing](CONTRIBUTING.md) and [security](SECURITY.md) | Proposing changes and reporting vulnerabilities privately |
 
 ## How it is built
 
