@@ -12,18 +12,9 @@ experience, moderation tools, outreach ledger, and news publishing system.
 [Events](https://servethecays.com/events) · [Run locally](#run-it-locally) ·
 [Contribute](CONTRIBUTING.md)
 
-[![Serve the Cays homepage with its island and helping-hand logo, community introduction, and organization and event links](docs/images/serve-the-cays-website.jpg)](https://servethecays.com/)
+[![Serve the Cays illustration of organization discovery, search filters, and community events](docs/images/serve-the-cays-illustration.webp)](https://servethecays.com/)
 
-*The public [Serve the Cays website](https://servethecays.com/), captured October 19, 2026.*
-
-<details>
-<summary>See the organization directory</summary>
-
-[![Serve the Cays organization directory with city and category filters and public organization cards](docs/images/serve-the-cays-directory.jpg)](https://servethecays.com/organizations)
-
-*The public [organization directory](https://servethecays.com/organizations), captured October 19, 2026.*
-
-</details>
+*Project illustration from [Caynetic.com](https://caynetic.com/#products).*
 
 ## What the codebase includes
 
