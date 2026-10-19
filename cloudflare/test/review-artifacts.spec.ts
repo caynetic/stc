@@ -94,11 +94,18 @@ async function seedDigestEvent(
 }
 
 it("exports every implemented email variant from the real builders without sending", async () => {
+  const runAt = new Date();
+  const now = runAt.toISOString();
+  const dayMs = 24 * 60 * 60 * 1_000;
+  const windowEnd = new Date(Date.UTC(runAt.getUTCFullYear(), runAt.getUTCMonth(), runAt.getUTCDate()));
+  windowEnd.setUTCDate(windowEnd.getUTCDate() - ((windowEnd.getUTCDay() + 6) % 7));
+  // D1 checks the real clock when a member favorites an event.
+  const startAt = new Date(runAt.getTime() + 30 * dayMs);
   const event = {
     event_id: 42,
     name: "Community Shoreline Day",
-    start_at: "2026-09-12T13:00:00.000Z",
-    end_at: "2026-09-12T17:00:00.000Z",
+    start_at: startAt.toISOString(),
+    end_at: new Date(startAt.getTime() + 4 * 60 * 60 * 1_000).toISOString(),
     timezone: "America/Nassau",
     venue_name: "Clifton Heritage Park",
     location_display: "New Providence",
@@ -137,12 +144,11 @@ it("exports every implemented email variant from the real builders without sendi
     recipient: "review@example.org",
     confirmationUrl: `${APP_ORIGIN}/newsletter/confirm#token=review-confirmation-token`,
     requestId: "review-newsletter-confirmation",
-    expiresAt: new Date("2026-08-21T12:00:00.000Z"),
-    sentAt: new Date("2026-08-20T12:00:00.000Z"),
+    expiresAt: new Date(runAt.getTime() + dayMs),
+    sentAt: runAt,
   });
   writeEmail("newsletter-confirmation", confirmation, "src/newsletter-delivery.ts:buildNewsletterConfirmationMessage");
 
-  const now = "2026-08-20T12:00:00.000Z";
   await baseEnv.DB.prepare(
     `INSERT INTO members (id, email, created_at, updated_at)
      VALUES ('member_review_personal', 'personal-review@example.org', ?, ?)`,
@@ -153,19 +159,19 @@ it("exports every implemented email variant from the real builders without sendi
   expect(await enableNewsletterPersonalization(baseEnv, customizeToken, "member_review_personal")).toBe(true);
   const favoriteId = await seedDigestEvent(
     "community-shoreline-day",
-    "2026-08-11T14:00:00.000Z",
-    "2026-09-12T13:00:00.000Z",
+    new Date(windowEnd.getTime() - 3 * dayMs).toISOString(),
+    event.start_at,
   );
   await seedDigestEvent(
     "family-service-fair",
-    "2026-08-12T14:00:00.000Z",
-    "2026-10-03T15:00:00.000Z",
+    new Date(windowEnd.getTime() - 2 * dayMs).toISOString(),
+    new Date(runAt.getTime() + 37 * dayMs).toISOString(),
   );
   await baseEnv.DB.prepare(
     `INSERT INTO event_favorites (member_id, event_id, created_at)
      VALUES ('member_review_personal', ?, ?)`,
   ).bind(favoriteId, now).run();
-  const digestId = await generateWeeklyDigest(baseEnv, new Date(now));
+  const digestId = await generateWeeklyDigest(baseEnv, runAt);
   expect(await fanoutNewsletterDigest(baseEnv, digestId)).toBe(2);
   expect(await processNewsletterJobs(baseEnv, 10)).toBe(2);
   const deliveries = await baseEnv.DB.prepare(
@@ -175,6 +181,10 @@ it("exports every implemented email variant from the real builders without sendi
   expect(deliveries.results.map((delivery) => delivery.mode)).toEqual(["general", "personalized"]);
   for (const delivery of deliveries.results) {
     const capture = JSON.parse(delivery.capture_json) as { subject: string; text: string; html: string };
+    for (const body of [capture.text, capture.html]) {
+      expect(body).toContain("Community Shoreline Day");
+      expect(body).toContain("Family Service Fair");
+    }
     writeEmail(
       delivery.mode === "general" ? "weekly-digest-general" : "weekly-digest-personalized",
       capture,
